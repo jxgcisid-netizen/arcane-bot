@@ -767,15 +767,13 @@ async def on_message_delete(message):
 @bot.event
 async def on_ready():
     print(f"✅ {bot.user} 已上线！")
-    print(f"已连接 {len(bot.guilds)} 个服务器")
     
-    # 同步斜杠命令到当前服务器（更快）
-    for guild in bot.guilds:
-        try:
-            await bot.tree.sync(guild=guild)
-            print(f"✅ 已同步命令到服务器: {guild.name}")
-        except Exception as e:
-            print(f"❌ 同步失败: {e}")
+    # 强制同步到你的服务器（替换成你的服务器ID）
+    guild_id = 1479502386006593729,1448758903000268925
+    guild = bot.get_guild(guild_id)
+    if guild:
+        await bot.tree.sync(guild=guild)
+        print(f"✅ 已同步命令到服务器")
     
     update_counters.start()
     if os.getenv("YOUTUBE_API_KEY"):
