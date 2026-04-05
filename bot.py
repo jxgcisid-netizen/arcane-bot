@@ -21,11 +21,16 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
+# ========== 检查是否是群主 ==========
+def is_owner():
+    async def predicate(ctx):
+        return ctx.author == ctx.guild.owner
+    return commands.check(predicate)
+
 # ========== 数据库初始化 ==========
 conn = sqlite3.connect("arcane_data.db")
 c = conn.cursor()
 
-# 用户数据表
 c.execute('''CREATE TABLE IF NOT EXISTS users (
     user_id TEXT,
     guild_id TEXT,
@@ -36,7 +41,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS users (
     PRIMARY KEY (user_id, guild_id)
 )''')
 
-# 等级奖励角色表
 c.execute('''CREATE TABLE IF NOT EXISTS level_rewards (
     guild_id TEXT,
     level INTEGER,
@@ -44,7 +48,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS level_rewards (
     PRIMARY KEY (guild_id, level)
 )''')
 
-# 自定义命令表
 c.execute('''CREATE TABLE IF NOT EXISTS custom_commands (
     guild_id TEXT,
     command_name TEXT,
@@ -52,7 +55,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS custom_commands (
     PRIMARY KEY (guild_id, command_name)
 )''')
 
-# 反应角色表
 c.execute('''CREATE TABLE IF NOT EXISTS reaction_roles (
     guild_id TEXT,
     message_id TEXT,
@@ -60,7 +62,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS reaction_roles (
     role_id TEXT
 )''')
 
-# YouTube通知表
 c.execute('''CREATE TABLE IF NOT EXISTS youtube_notifications (
     guild_id TEXT,
     channel_id TEXT,
@@ -68,7 +69,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS youtube_notifications (
     last_video_id TEXT
 )''')
 
-# 计数器表
 c.execute('''CREATE TABLE IF NOT EXISTS counters (
     guild_id TEXT,
     counter_type TEXT,
@@ -76,7 +76,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS counters (
     message_template TEXT
 )''')
 
-# 欢迎设置表
 c.execute('''CREATE TABLE IF NOT EXISTS welcome_settings (
     guild_id TEXT PRIMARY KEY,
     channel_id TEXT,
@@ -85,7 +84,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS welcome_settings (
     color TEXT
 )''')
 
-# 服务器设置表
 c.execute('''CREATE TABLE IF NOT EXISTS guild_settings (
     guild_id TEXT PRIMARY KEY,
     xp_rate REAL DEFAULT 1.0,
@@ -94,7 +92,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS guild_settings (
     card_color TEXT
 )''')
 
-# 日志设置表
 c.execute('''CREATE TABLE IF NOT EXISTS log_settings (
     guild_id TEXT PRIMARY KEY,
     message_log_channel TEXT,
@@ -188,7 +185,6 @@ async def on_voice_state_update(member, before, after):
     if before.channel is None and after.channel is not None:
         voice_tracker[member.id]["join_time"] = datetime.now()
         
-        # 语音日志
         c.execute("SELECT voice_log_channel FROM log_settings WHERE guild_id=?", (str(guild_id),))
         result = c.fetchone()
         if result and result[0]:
@@ -221,7 +217,6 @@ async def on_voice_state_update(member, before, after):
                 update_user_data(guild_id, member.id, user_data)
             del voice_tracker[member.id]
         
-        # 语音日志
         c.execute("SELECT voice_log_channel FROM log_settings WHERE guild_id=?", (str(guild_id),))
         result = c.fetchone()
         if result and result[0]:
@@ -238,7 +233,6 @@ async def on_voice_state_update(member, before, after):
 # ========== 等级卡片（图片） ==========
 @bot.command()
 async def rank(ctx, member: discord.Member = None):
-    """查看等级卡片（图片）"""
     member = member or ctx.author
     user_data = get_user_data(ctx.guild.id, member.id)
     settings = get_guild_settings(ctx.guild.id)
@@ -295,9 +289,9 @@ async def leaderboard(ctx):
         embed.add_field(name=f"{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
     await ctx.send(embed=embed)
 
-# ========== 自定义命令 ==========
+# ========== 自定义命令（群主专用） ==========
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def addcmd(ctx, cmd_name, *, response):
     try:
         c.execute("INSERT INTO custom_commands (guild_id, command_name, response) VALUES (?, ?, ?)",
@@ -308,7 +302,7 @@ async def addcmd(ctx, cmd_name, *, response):
         await ctx.send(f"❌ 命令 `!{cmd_name}` 已存在")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def delcmd(ctx, cmd_name):
     c.execute("DELETE FROM custom_commands WHERE guild_id=? AND command_name=?", (str(ctx.guild.id), cmd_name))
     conn.commit()
@@ -324,16 +318,7 @@ async def listcmds(ctx):
     else:
         await ctx.send("📭 暂无自定义命令")
 
-# 动态执行自定义命令
-async def execute_custom_command(ctx, cmd_name):
-    c.execute("SELECT response FROM custom_commands WHERE guild_id=? AND command_name=?", (str(ctx.guild.id), cmd_name))
-    result = c.fetchone()
-    if result:
-        await ctx.send(result[0])
-        return True
-    return False
-
-# ========== 反应角色 ==========
+# ========== 反应角色（群主专用） ==========
 @bot.event
 async def on_raw_reaction_add(payload):
     if payload.user_id == bot.user.id:
@@ -362,16 +347,16 @@ async def on_raw_reaction_remove(payload):
             await member.remove_roles(role)
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def addreactionrole(ctx, message_id: int, emoji, role: discord.Role):
     c.execute("INSERT INTO reaction_roles (guild_id, message_id, emoji, role_id) VALUES (?, ?, ?, ?)",
               (str(ctx.guild.id), str(message_id), emoji, str(role.id)))
     conn.commit()
     await ctx.send(f"✅ 已添加反应角色: {emoji} → {role.mention}")
 
-# ========== 等级奖励角色 ==========
+# ========== 等级奖励角色（群主专用） ==========
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def addlevelrole(ctx, level: int, role: discord.Role):
     c.execute("INSERT OR REPLACE INTO level_rewards (guild_id, level, role_id) VALUES (?, ?, ?)",
               (str(ctx.guild.id), level, str(role.id)))
@@ -379,15 +364,15 @@ async def addlevelrole(ctx, level: int, role: discord.Role):
     await ctx.send(f"✅ {level} 级奖励角色设置为 {role.mention}")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def removelevelrole(ctx, level: int):
     c.execute("DELETE FROM level_rewards WHERE guild_id=? AND level=?", (str(ctx.guild.id), level))
     conn.commit()
     await ctx.send(f"✅ 已删除 {level} 级的奖励角色")
 
-# ========== 自定义 XP 倍率 ==========
+# ========== 自定义 XP 倍率（群主专用） ==========
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def setxprate(ctx, rate: float):
     rate = max(0.1, min(5.0, rate))
     c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, xp_rate) VALUES (?, ?)", (str(ctx.guild.id), rate))
@@ -395,7 +380,7 @@ async def setxprate(ctx, rate: float):
     await ctx.send(f"✅ 经验倍率已设置为 {rate}x")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def setvoicexprate(ctx, rate: float):
     rate = max(0.1, min(5.0, rate))
     c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, voice_xp_rate) VALUES (?, ?)", (str(ctx.guild.id), rate))
@@ -403,14 +388,14 @@ async def setvoicexprate(ctx, rate: float):
     await ctx.send(f"✅ 语音经验倍率已设置为 {rate}x")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def setcardbg(ctx, url: str):
     c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, card_background) VALUES (?, ?)", (str(ctx.guild.id), url))
     conn.commit()
     await ctx.send(f"✅ 等级卡片背景已更新")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def setcardcolor(ctx, color: str):
     if not color.startswith("#"):
         color = "#" + color
@@ -418,7 +403,7 @@ async def setcardcolor(ctx, color: str):
     conn.commit()
     await ctx.send(f"✅ 等级卡片颜色已设置为 {color}")
 
-# ========== 计数器系统 ==========
+# ========== 计数器系统（群主专用） ==========
 @tasks.loop(minutes=5)
 async def update_counters():
     for guild in bot.guilds:
@@ -443,14 +428,14 @@ async def update_counters():
                 await channel.edit(name=message)
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def addcounter(ctx, counter_type: str, channel: discord.TextChannel, *, template: str):
     c.execute("INSERT INTO counters (guild_id, counter_type, channel_id, message_template) VALUES (?, ?, ?, ?)",
               (str(ctx.guild.id), counter_type, str(channel.id), template))
     conn.commit()
     await ctx.send(f"✅ 已添加 {counter_type} 计数器")
 
-# ========== YouTube 通知系统 ==========
+# ========== YouTube 通知系统（群主专用） ==========
 @tasks.loop(minutes=10)
 async def check_youtube():
     for guild in bot.guilds:
@@ -482,14 +467,14 @@ async def check_youtube():
                 pass
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def addyoutube(ctx, youtube_channel_id: str, notification_channel: discord.TextChannel):
     c.execute("INSERT INTO youtube_notifications (guild_id, channel_id, youtube_channel, last_video_id) VALUES (?, ?, ?, ?)",
               (str(ctx.guild.id), str(notification_channel.id), youtube_channel_id, ""))
     conn.commit()
     await ctx.send(f"✅ 已添加 YouTube 频道 {youtube_channel_id} 的通知")
 
-# ========== 欢迎消息 ==========
+# ========== 欢迎消息（群主专用） ==========
 @bot.event
 async def on_member_join(member):
     c.execute("SELECT channel_id, message, background_url, color FROM welcome_settings WHERE guild_id=?", (str(member.guild.id),))
@@ -517,14 +502,14 @@ async def on_member_join(member):
             await channel.send(embed=embed)
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def setwelcome(ctx, channel: discord.TextChannel, *, message: str):
     c.execute("INSERT OR REPLACE INTO welcome_settings (guild_id, channel_id, message) VALUES (?, ?, ?)",
               (str(ctx.guild.id), str(channel.id), message))
     conn.commit()
     await ctx.send(f"✅ 欢迎消息已设置到 {channel.mention}")
 
-# ========== 日志系统 ==========
+# ========== 日志系统（群主专用） ==========
 @bot.event
 async def on_message_delete(message):
     if message.author.bot:
@@ -543,7 +528,7 @@ async def on_message_delete(message):
             await channel.send(embed=embed)
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def setlogchannel(ctx, channel: discord.TextChannel):
     c.execute("INSERT OR REPLACE INTO log_settings (guild_id, message_log_channel) VALUES (?, ?)",
               (str(ctx.guild.id), str(channel.id)))
@@ -551,23 +536,23 @@ async def setlogchannel(ctx, channel: discord.TextChannel):
     await ctx.send(f"✅ 日志频道已设置为 {channel.mention}")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def setvoicelog(ctx, channel: discord.TextChannel):
     c.execute("INSERT OR REPLACE INTO log_settings (guild_id, voice_log_channel) VALUES (?, ?)",
               (str(ctx.guild.id), str(channel.id)))
     conn.commit()
     await ctx.send(f"✅ 语音日志频道已设置为 {channel.mention}")
 
-# ========== 自定义 XP 值 ==========
+# ========== 自定义 XP 值（群主专用） ==========
 @bot.command()
-@commands.has_permissions(administrator=True)
+@is_owner()
 async def addxp(ctx, member: discord.Member, amount: int):
     user_data = get_user_data(ctx.guild.id, member.id)
     user_data["xp"] += amount
     update_user_data(ctx.guild.id, member.id, user_data)
     await ctx.send(f"✅ 已给 {member.mention} 添加 {amount} 经验")
 
-# ========== 管理命令 ==========
+# ========== 管理命令（需要相应权限） ==========
 @bot.command()
 @commands.has_permissions(kick_members=True)
 async def kick(ctx, member: discord.Member, *, reason=None):
@@ -605,13 +590,13 @@ async def unlock(ctx, channel: discord.TextChannel = None):
 async def help(ctx):
     embed = discord.Embed(
         title="✨ Arcane 功能帮助 ✨",
-        description="**等级系统**\n`!rank` - 查看等级卡片（图片）\n`!leaderboard` - 排行榜\n`!addlevelrole` - 设置等级奖励角色\n`!setxprate` - 设置经验倍率\n`!setvoicexprate` - 语音经验倍率\n`!setcardbg` - 设置卡片背景\n`!setcardcolor` - 设置卡片颜色\n`!addxp` - 添加经验（管理员）\n\n"
-                    "**自定义命令**\n`!addcmd` - 添加自定义命令\n`!delcmd` - 删除自定义命令\n`!listcmds` - 列出自定义命令\n\n"
-                    "**反应角色**\n`!addreactionrole` - 添加反应角色\n\n"
-                    "**YouTube 通知**\n`!addyoutube` - 添加 YouTube 频道通知\n\n"
-                    "**计数器**\n`!addcounter` - 添加计数器\n\n"
-                    "**欢迎消息**\n`!setwelcome` - 设置欢迎消息\n\n"
-                    "**日志**\n`!setlogchannel` - 设置消息日志频道\n`!setvoicelog` - 设置语音日志频道\n\n"
+        description="**等级系统**\n`!rank` - 查看等级卡片（图片）\n`!leaderboard` - 排行榜\n\n"
+                    "**自定义命令**\n`!addcmd` - 添加自定义命令（仅群主）\n`!delcmd` - 删除自定义命令（仅群主）\n`!listcmds` - 列出自定义命令\n\n"
+                    "**反应角色**\n`!addreactionrole` - 添加反应角色（仅群主）\n\n"
+                    "**YouTube 通知**\n`!addyoutube` - 添加 YouTube 频道通知（仅群主）\n\n"
+                    "**计数器**\n`!addcounter` - 添加计数器（仅群主）\n\n"
+                    "**欢迎消息**\n`!setwelcome` - 设置欢迎消息（仅群主）\n\n"
+                    "**日志**\n`!setlogchannel` - 设置消息日志频道（仅群主）\n`!setvoicelog` - 设置语音日志频道（仅群主）\n\n"
                     "**管理**\n`!kick`, `!ban`, `!clear` - 管理命令\n`!lock`, `!unlock` - 锁定/解锁频道",
         color=discord.Color.purple()
     )
