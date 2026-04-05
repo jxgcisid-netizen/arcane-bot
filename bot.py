@@ -172,7 +172,7 @@ def get_rank(guild_id, user_id):
     return 0
 
 # ========== 等级卡片图片生成 ==========
-async def create_rank_card(member, level, xp, needed_xp, rank, guild_name, settings):
+async def create_level_card(member, level, xp, needed_xp, rank, guild_name, settings):
     # 创建画布
     img = Image.new('RGB', (800, 300), color='#2C2F33')
     draw = ImageDraw.Draw(img)
@@ -342,7 +342,7 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     needed_xp = user_data["level"] * 50
     
     try:
-        img_bytes = await create_rank_card(
+        img_bytes = await create_level_card(
             member, 
             user_data["level"], 
             user_data["xp"], 
@@ -354,7 +354,6 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
         file = discord.File(img_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
     except Exception as e:
-        # 降级：发送文字版
         embed = discord.Embed(
             title=f"{member.name} 的等级",
             description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}\n语音经验: {user_data['voice_xp']}",
@@ -767,13 +766,15 @@ async def on_message_delete(message):
 @bot.event
 async def on_ready():
     print(f"✅ {bot.user} 已上线！")
+    print(f"已连接 {len(bot.guilds)} 个服务器")
     
-    # 强制同步到你的服务器（替换成你的服务器ID）
-    guild_id = 1479502386006593729,1448758903000268925
-    guild = bot.get_guild(guild_id)
-    if guild:
-        await bot.tree.sync(guild=guild)
-        print(f"✅ 已同步命令到服务器")
+    # 同步斜杠命令
+    for guild in bot.guilds:
+        try:
+            await bot.tree.sync(guild=guild)
+            print(f"✅ 已同步命令到服务器: {guild.name}")
+        except Exception as e:
+            print(f"❌ 同步失败: {e}")
     
     update_counters.start()
     if os.getenv("YOUTUBE_API_KEY"):
