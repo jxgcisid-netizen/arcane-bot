@@ -276,14 +276,18 @@ async def on_voice_state_update(member, before, after):
 async def on_ready():
     print(f"✅ {bot.user} 已上线！")
     print(f"已连接 {len(bot.guilds)} 个服务器")
+    
+    # 清除旧的全局命令
+    await bot.tree.clear_commands(guild=None)
+    
     try:
+        # 重新同步全局命令
         synced = await bot.tree.sync()
         print(f"✅ 已同步 {len(synced)} 个斜杠命令")
+        for cmd in synced:
+            print(f"   - /{cmd.name}")
     except Exception as e:
         print(f"❌ 同步命令失败: {e}")
-    update_counters.start()
-    if os.getenv("YOUTUBE_API_KEY"):
-        check_youtube.start()
 
 # ========== 斜杠命令 ==========
 
