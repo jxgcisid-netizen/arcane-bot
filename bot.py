@@ -768,17 +768,17 @@ async def on_ready():
     print(f"✅ {bot.user} 已上线！")
     print(f"已连接 {len(bot.guilds)} 个服务器")
     
-    # 同步斜杠命令
+    # 清除所有全局命令
+    await bot.tree.clear_commands(guild=None)
+    
+    # 清除每个服务器的命令
     for guild in bot.guilds:
-        try:
-            await bot.tree.sync(guild=guild)
-            print(f"✅ 已同步命令到服务器: {guild.name}")
-        except Exception as e:
-            print(f"❌ 同步失败: {e}")
+        await bot.tree.clear_commands(guild=guild)
+        await bot.tree.sync(guild=guild)
+        print(f"✅ 已清除并同步命令到服务器: {guild.name}")
     
     update_counters.start()
     if os.getenv("YOUTUBE_API_KEY"):
         check_youtube.start()
-
 # ========== 运行 ==========
 bot.run(TOKEN)
