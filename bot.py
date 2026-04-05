@@ -768,12 +768,12 @@ async def on_ready():
     print(f"✅ {bot.user} 已上线！")
     print(f"已连接 {len(bot.guilds)} 个服务器")
     
-    # 强制清除所有全局命令
-    await bot.tree.clear_commands(guild=None)
+    # 清除全局命令（同步方法，不需要 await）
+    bot.tree.clear_commands(guild=None)
     
-    # 强制清除每个服务器的命令
+    # 清除每个服务器的命令
     for guild in bot.guilds:
-        await bot.tree.clear_commands(guild=guild)
+        bot.tree.clear_commands(guild=guild)
         print(f"✅ 已清除 {guild.name} 的旧命令")
     
     # 等待2秒确保清除完成
