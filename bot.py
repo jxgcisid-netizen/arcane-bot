@@ -205,49 +205,6 @@ async def create_rank_card_html(username, level, xp, next_xp, rank, avatar_url, 
     
     with open(png_path, "rb") as f:
         return f.read()
-        
-async def create_level_card(member, level, xp, needed_xp, rank, guild_name, settings):
-    img = Image.new('RGB', (800, 300), color='#2C2F33')
-    draw = ImageDraw.Draw(img)
-    
-    try:
-        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
-    except:
-        title_font = ImageFont.load_default()
-        font = ImageFont.load_default()
-        small_font = ImageFont.load_default()
-    
-    avatar_url = member.display_avatar.url
-    async with aiohttp.ClientSession() as session:
-        async with session.get(avatar_url) as resp:
-            avatar_data = await resp.read()
-    avatar_img = Image.open(io.BytesIO(avatar_data)).resize((80, 80))
-    
-    mask = Image.new('L', (80, 80), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.ellipse((0, 0, 80, 80), fill=255)
-    img.paste(avatar_img, (30, 110), mask)
-    
-    draw.text((130, 120), member.name, fill='white', font=title_font)
-    draw.text((130, 165), f"Level {level}", fill='#FFD700', font=font)
-    draw.text((130, 200), f"Rank #{rank}", fill='#a78bfa', font=small_font)
-    draw.text((730, 280), guild_name, fill='#6c6c8e', font=small_font, anchor='rb')
-    
-    bar_width = 400
-    bar_height = 20
-    draw.rectangle([130, 245, 130 + bar_width, 245 + bar_height], outline='#5865F2', width=2, fill='#1a1a2e')
-    
-    progress = int((xp / needed_xp) * bar_width) if needed_xp > 0 else 0
-    draw.rectangle([130, 245, 130 + progress, 245 + bar_height], fill=settings["card_color"])
-    
-    draw.text((130, 275), f"{xp} / {needed_xp} XP", fill='#a0a0c0', font=small_font)
-    
-    img_bytes = io.BytesIO()
-    img.save(img_bytes, format='PNG')
-    img_bytes.seek(0)
-    return img_bytes
 
 # ========== 排行榜图片生成 ==========
 async def create_leaderboard_image(guild_name, top_users):
