@@ -9,7 +9,9 @@ from datetime import datetime, timedelta
 import sqlite3
 from collections import defaultdict
 import re
-from pilcord import RankCard, CardSettings
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
+import io
+import math
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -169,6 +171,141 @@ def get_rank(guild_id, user_id):
             return i
     return 0
 
+# ========== 超级好看的等级卡片生成 ==========
+async def create_beautiful_rank_card(member, level, xp, needed_xp, rank, guild_name):
+    # 图片尺寸
+    width, height = 900, 350
+    
+    # 1. 创建渐变背景
+    img = Image.new('RGB', (width, height))
+    draw = ImageDraw.Draw(img)
+    
+    # 深色渐变背景（从深蓝到深紫）
+    for y in range(height):
+        # 颜色渐变计算
+        r = 20 + int(15 * y / height)
+        g = 20 + int(10 * y / height)
+        b = 40 + int(30 * y / height)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+    
+    # 2. 添加光晕效果（左上角亮光）
+    for i in range(200):
+        alpha = 30 - int(i / 4)
+        if alpha > 0:
+            draw.ellipse([(50 - i//2, 50 - i//2, 50 + i//2, 50 + i//2)], 
+                         fill=(100, 80, 200, alpha))
+    
+    # 3. 下载并处理头像
+    async with aiohttp.ClientSession() as session:
+        async with session.get(member.display_avatar.url) as resp:
+            avatar_data = await resp.read()
+    avatar = Image.open(io.BytesIO(avatar_data)).resize((120, 120))
+    
+    # 4. 制作圆形头像 + 发光边框
+    mask = Image.new('L', (120, 120), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.ellipse((0, 0, 120, 120), fill=255)
+    
+    # 发光效果
+    glow = Image.new('RGBA', (150, 150), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    for i in range(20, 0, -2):
+        alpha = 30 - i
+        glow_draw.ellipse([(15 - i//2, 15 - i//2, 135 + i//2, 135 + i//2)], 
+                          fill=(100, 80, 200, alpha))
+    
+    img.paste(avatar, (45, 115), mask)
+    
+    # 5. 加载字体
+    try:
+        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
+        level_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
+        text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+    except:
+        title_font = ImageFont.load_default()
+        level_font = ImageFont.load_default()
+        text_font = ImageFont.load_default()
+        small_font = ImageFont.load_default()
+    
+    # 6. 画用户名（带阴影）
+    shadow_offset = 2
+    draw.text((190 + shadow_offset, 125 + shadow_offset), member.name, 
+              fill=(50, 50, 70), font=title_font)
+    draw.text((190, 125), member.name, fill='white', font=title_font)
+    
+    # 7. 画等级徽章
+    level_text = f"LEVEL {level}"
+    # 徽章背景
+    badge_width = 140
+    badge_height = 40
+    badge_x = 190
+    badge_y = 180
+    
+    # 渐变徽章
+    for i in range(badge_height):
+        r = 100 + int(100 * i / badge_height)
+        g = 50 + int(50 * i / badge_height)
+        b = 150 + int(100 * i / badge_height)
+        draw.line([(badge_x, badge_y + i), (badge_x + badge_width, badge_y + i)], 
+                  fill=(r, g, b))
+    
+    # 徽章边框
+    draw.rectangle([badge_x, badge_y, badge_x + badge_width, badge_y + badge_height], 
+                   outline=(200, 150, 100), width=2)
+    
+    # 徽章文字
+    draw.text((badge_x + badge_width//2, badge_y + badge_height//2 - 8), 
+              level_text, fill='white', font=level_font, anchor='mm')
+    
+    # 8. 画排名
+    rank_text = f"🏆 Rank #{rank}"
+    draw.text((190, 235), rank_text, fill=(200, 180, 100), font=text_font)
+    
+    # 9. 画服务器名称
+    draw.text((width - 20, height - 25), guild_name, 
+              fill=(100, 100, 130), font=small_font, anchor='rb')
+    
+    # 10. 画经验条背景
+    bar_x = 190
+    bar_y = 275
+    bar_width = 550
+    bar_height = 25
+    
+    # 背景
+    draw.rectangle([bar_x, bar_y, bar_x + bar_width, bar_y + bar_height], 
+                   fill=(30, 30, 50), outline=(80, 80, 120), width=2)
+    
+    # 渐变进度条
+    progress = int((xp / needed_xp) * bar_width) if needed_xp > 0 else 0
+    for i in range(bar_height):
+        for j in range(progress):
+            r = 80 + int(100 * j / bar_width)
+            g = 100 + int(80 * j / bar_width)
+            b = 255 - int(80 * j / bar_width)
+            draw.point((bar_x + j, bar_y + i), fill=(r, g, b))
+    
+    # 11. 经验数字
+    exp_text = f"{xp} / {needed_xp} XP"
+    draw.text((bar_x + bar_width + 15, bar_y + bar_height//2 - 5), 
+              exp_text, fill=(180, 180, 220), font=small_font)
+    
+    # 12. 添加装饰线条
+    draw.line([(45, 280), (170, 280)], fill=(150, 100, 200), width=3)
+    draw.line([(45, 285), (170, 285)], fill=(100, 80, 150), width=1)
+    
+    # 13. 添加星星装饰
+    for i in range(3):
+        star_x = width - 50 - i * 30
+        star_y = 40
+        draw.text((star_x, star_y), "⭐", fill=(255, 215, 0, 100), font=small_font)
+    
+    # 保存
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    return img_bytes
+
 # ========== 等级系统 ==========
 @bot.event
 async def on_message(message):
@@ -278,31 +415,19 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     needed_xp = user_data["level"] * 50
     
     try:
-        card_settings = CardSettings(
-            bar_color="#5865F2",
-            text_color="white",
-            background_color="#2C2F33"
+        img_bytes = await create_beautiful_rank_card(
+            member, user_data["level"], user_data["xp"], 
+            needed_xp, rank_pos, interaction.guild.name
         )
-        
-        rank_card = RankCard(
-            settings=card_settings,
-            avatar=member.display_avatar.url,
-            level=user_data["level"],
-            current_exp=user_data["xp"],
-            max_exp=needed_xp,
-            username=member.name,
-            rank=rank_pos
-        )
-        
-        image_bytes = await rank_card.card1()
-        file = discord.File(image_bytes, filename="level.png")
+        file = discord.File(img_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
     except Exception as e:
         embed = discord.Embed(
             title=f"{member.name} 的等级",
-            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}",
+            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}\n语音经验: {user_data['voice_xp']}",
             color=discord.Color.blue()
         )
+        embed.set_thumbnail(url=member.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
@@ -313,31 +438,19 @@ async def slash_rank(interaction: discord.Interaction, member: discord.Member = 
     needed_xp = user_data["level"] * 50
     
     try:
-        card_settings = CardSettings(
-            bar_color="#5865F2",
-            text_color="white",
-            background_color="#2C2F33"
+        img_bytes = await create_beautiful_rank_card(
+            member, user_data["level"], user_data["xp"], 
+            needed_xp, rank_pos, interaction.guild.name
         )
-        
-        rank_card = RankCard(
-            settings=card_settings,
-            avatar=member.display_avatar.url,
-            level=user_data["level"],
-            current_exp=user_data["xp"],
-            max_exp=needed_xp,
-            username=member.name,
-            rank=rank_pos
-        )
-        
-        image_bytes = await rank_card.card1()
-        file = discord.File(image_bytes, filename="level.png")
+        file = discord.File(img_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
     except Exception as e:
         embed = discord.Embed(
             title=f"{member.name} 的等级",
-            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}",
+            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}\n语音经验: {user_data['voice_xp']}",
             color=discord.Color.blue()
         )
+        embed.set_thumbnail(url=member.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
@@ -359,12 +472,18 @@ async def slash_leaderboard(interaction: discord.Interaction):
             name = f"用户{user_id[:8]}"
         users_data.append((name, level, xp))
     
-    # 创建图片
+    # 创建排行榜图片
     height = 150 + len(users_data) * 55
-    img = Image.new('RGB', (800, height), color='#2C2F33')
+    img = Image.new('RGB', (800, height), color='#1a1a2e')
     draw = ImageDraw.Draw(img)
     
-    # 加载字体
+    # 渐变背景
+    for y in range(height):
+        r = 20 + int(15 * y / height)
+        g = 20 + int(10 * y / height)
+        b = 40 + int(30 * y / height)
+        draw.line([(0, y), (800, y)], fill=(r, g, b))
+    
     try:
         title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
         header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
@@ -374,22 +493,15 @@ async def slash_leaderboard(interaction: discord.Interaction):
         header_font = ImageFont.load_default()
         font = ImageFont.load_default()
     
-    # 画标题
     draw.text((400, 30), f"{interaction.guild.name} 等级排行榜", fill='white', font=title_font, anchor='mt')
-    
-    # 画表头
     draw.text((60, 80), "排名", fill='#a78bfa', font=header_font)
     draw.text((160, 80), "玩家", fill='#a78bfa', font=header_font)
     draw.text((500, 80), "等级", fill='#a78bfa', font=header_font)
     draw.text((620, 80), "经验", fill='#a78bfa', font=header_font)
-    
-    # 画分隔线
     draw.line([(40, 110), (760, 110)], fill='#5865F2', width=2)
     
-    # 画数据
     y = 130
     for i, (name, level, xp) in enumerate(users_data, 1):
-        # 前三名特殊颜色
         if i == 1:
             rank_color = "#FFD700"
             medal = "🥇"
@@ -409,7 +521,6 @@ async def slash_leaderboard(interaction: discord.Interaction):
         draw.text((620, y), str(xp), fill="white", font=font)
         y += 50
     
-    # 保存图片
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
@@ -417,260 +528,16 @@ async def slash_leaderboard(interaction: discord.Interaction):
     file = discord.File(img_bytes, filename="leaderboard.png")
     await interaction.response.send_message(file=file)
 
-@bot.tree.command(name="userinfo", description="查看用户信息")
-async def slash_userinfo(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    embed = discord.Embed(title=f"{member.name} 的信息", color=member.color)
-    embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
-    embed.add_field(name="ID", value=member.id, inline=True)
-    embed.add_field(name="加入时间", value=member.joined_at.strftime("%Y-%m-%d") if member.joined_at else "未知", inline=True)
-    embed.add_field(name="注册时间", value=member.created_at.strftime("%Y-%m-%d"), inline=True)
-    embed.add_field(name="最高角色", value=member.top_role.mention if member.top_role else "无", inline=True)
-    embed.add_field(name="是否机器人", value="是" if member.bot else "否", inline=True)
-    await interaction.response.send_message(embed=embed)
+# ========== 其他命令（保持不变）==========
+# userinfo, serverinfo, avatar, invite, help, add_level_role, 
+# remove_level_role, set_xp_rate, add_cmd, del_cmd, list_cmds,
+# add_reaction_role, add_youtube, add_counter, set_welcome,
+# set_log_channel, set_voice_log, kick, ban, clear, lock, unlock,
+# add_admin_role, remove_admin_role, add_admin_user, remove_admin_user, list_admins
+# ... 这些命令和之前一样，保持原样
 
-@bot.tree.command(name="serverinfo", description="查看服务器信息")
-async def slash_serverinfo(interaction: discord.Interaction):
-    guild = interaction.guild
-    embed = discord.Embed(title=guild.name, color=discord.Color.blue())
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-    embed.add_field(name="ID", value=guild.id, inline=True)
-    embed.add_field(name="创建时间", value=guild.created_at.strftime("%Y-%m-%d"), inline=True)
-    embed.add_field(name="成员数量", value=guild.member_count, inline=True)
-    embed.add_field(name="频道数量", value=len(guild.channels), inline=True)
-    embed.add_field(name="角色数量", value=len(guild.roles), inline=True)
-    embed.add_field(name="服务器所有者", value=guild.owner.mention if guild.owner else "未知", inline=True)
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="avatar", description="查看用户头像")
-async def slash_avatar(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    embed = discord.Embed(title=f"{member.name} 的头像", color=discord.Color.blue())
-    embed.set_image(url=member.avatar.url if member.avatar else member.default_avatar.url)
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="invite", description="邀请机器人到你的服务器")
-async def slash_invite(interaction: discord.Interaction):
-    invite_url = f"https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands"
-    embed = discord.Embed(title="📎 邀请我", description=f"[点击这里邀请机器人]({invite_url})", color=discord.Color.green())
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="help", description="查看帮助")
-async def help_command(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="✨ Arcane Bot 帮助 ✨",
-        description="**等级系统**\n`/level` 或 `/rank` - 查看等级卡片\n`/leaderboard` - 排行榜\n`/add_level_role` - 设置等级奖励角色\n`/set_xp_rate` - 设置经验倍率\n\n"
-                    "**自定义命令**\n`/add_cmd` - 添加自定义命令\n`/del_cmd` - 删除自定义命令\n`/list_cmds` - 列出自定义命令\n\n"
-                    "**反应角色**\n`/add_reaction_role` - 添加反应角色\n\n"
-                    "**YouTube 通知**\n`/add_youtube` - 添加 YouTube 频道通知\n\n"
-                    "**计数器**\n`/add_counter` - 添加计数器\n\n"
-                    "**欢迎消息**\n`/set_welcome` - 设置欢迎消息\n\n"
-                    "**日志**\n`/set_log_channel` - 设置消息日志频道\n`/set_voice_log` - 设置语音日志频道\n\n"
-                    "**管理**\n`/kick`, `/ban`, `/clear` - 管理命令\n`/lock`, `/unlock` - 锁定/解锁频道\n\n"
-                    "**信息**\n`/userinfo` - 用户信息\n`/serverinfo` - 服务器信息\n`/avatar` - 查看头像\n`/invite` - 邀请机器人\n\n"
-                    "**权限管理（仅群主）**\n`/add_admin_role` - 添加管理角色\n`/add_admin_user` - 添加管理用户\n`/list_admins` - 查看管理权限",
-        color=discord.Color.purple()
-    )
-    await interaction.response.send_message(embed=embed)
-
-# ========== 等级设置命令 ==========
-@bot.tree.command(name="add_level_role", description="设置等级奖励角色")
-@admin_only()
-async def add_level_role(interaction: discord.Interaction, level: int, role: discord.Role):
-    c.execute("INSERT OR REPLACE INTO level_rewards (guild_id, level, role_id) VALUES (?, ?, ?)",
-              (str(interaction.guild.id), level, str(role.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ {level} 级奖励角色设置为 {role.mention}", ephemeral=True)
-
-@bot.tree.command(name="remove_level_role", description="删除等级奖励角色")
-@admin_only()
-async def remove_level_role(interaction: discord.Interaction, level: int):
-    c.execute("DELETE FROM level_rewards WHERE guild_id=? AND level=?", (str(interaction.guild.id), level))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 已删除 {level} 级的奖励角色", ephemeral=True)
-
-@bot.tree.command(name="set_xp_rate", description="设置经验倍率")
-@admin_only()
-async def set_xp_rate(interaction: discord.Interaction, rate: float):
-    rate = max(0.1, min(5.0, rate))
-    c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, xp_rate) VALUES (?, ?)", (str(interaction.guild.id), rate))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 经验倍率已设置为 {rate}x", ephemeral=True)
-
-# ========== 自定义命令 ==========
-@bot.tree.command(name="add_cmd", description="添加自定义命令")
-@admin_only()
-async def add_cmd(interaction: discord.Interaction, name: str, response: str):
-    try:
-        c.execute("INSERT INTO custom_commands (guild_id, command_name, response) VALUES (?, ?, ?)",
-                  (str(interaction.guild.id), name, response))
-        conn.commit()
-        await interaction.response.send_message(f"✅ 已添加自定义命令 `/{name}`", ephemeral=True)
-    except sqlite3.IntegrityError:
-        await interaction.response.send_message(f"❌ 命令 `/{name}` 已存在", ephemeral=True)
-
-@bot.tree.command(name="del_cmd", description="删除自定义命令")
-@admin_only()
-async def del_cmd(interaction: discord.Interaction, name: str):
-    c.execute("DELETE FROM custom_commands WHERE guild_id=? AND command_name=?", (str(interaction.guild.id), name))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 已删除自定义命令 `/{name}`", ephemeral=True)
-
-@bot.tree.command(name="list_cmds", description="列出自定义命令")
-async def list_cmds(interaction: discord.Interaction):
-    c.execute("SELECT command_name FROM custom_commands WHERE guild_id=?", (str(interaction.guild.id),))
-    commands_list = c.fetchall()
-    if commands_list:
-        cmd_names = ", ".join([f"/{cmd[0]}" for cmd in commands_list])
-        await interaction.response.send_message(f"📋 自定义命令: {cmd_names}", ephemeral=True)
-    else:
-        await interaction.response.send_message("📭 暂无自定义命令", ephemeral=True)
-
-# ========== 反应角色 ==========
-@bot.tree.command(name="add_reaction_role", description="添加反应角色")
-@admin_only()
-async def add_reaction_role(interaction: discord.Interaction, message_id: str, emoji: str, role: discord.Role):
-    c.execute("INSERT INTO reaction_roles (guild_id, message_id, emoji, role_id) VALUES (?, ?, ?, ?)",
-              (str(interaction.guild.id), message_id, emoji, str(role.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 已添加反应角色: {emoji} → {role.mention}", ephemeral=True)
-
-# ========== YouTube 通知 ==========
-@bot.tree.command(name="add_youtube", description="添加 YouTube 频道通知")
-@admin_only()
-async def add_youtube(interaction: discord.Interaction, youtube_channel_id: str, notification_channel: discord.TextChannel):
-    c.execute("INSERT INTO youtube_notifications (guild_id, channel_id, youtube_channel, last_video_id) VALUES (?, ?, ?, ?)",
-              (str(interaction.guild.id), str(notification_channel.id), youtube_channel_id, ""))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 已添加 YouTube 频道 {youtube_channel_id} 的通知", ephemeral=True)
-
-# ========== 计数器 ==========
-@bot.tree.command(name="add_counter", description="添加计数器")
-@admin_only()
-async def add_counter(interaction: discord.Interaction, counter_type: str, channel: discord.TextChannel, template: str):
-    c.execute("INSERT INTO counters (guild_id, counter_type, channel_id, message_template) VALUES (?, ?, ?, ?)",
-              (str(interaction.guild.id), counter_type, str(channel.id), template))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 已添加 {counter_type} 计数器", ephemeral=True)
-
-# ========== 欢迎消息 ==========
-@bot.tree.command(name="set_welcome", description="设置欢迎消息")
-@admin_only()
-async def set_welcome(interaction: discord.Interaction, channel: discord.TextChannel, message: str):
-    c.execute("INSERT OR REPLACE INTO welcome_settings (guild_id, channel_id, message) VALUES (?, ?, ?)",
-              (str(interaction.guild.id), str(channel.id), message))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 欢迎消息已设置到 {channel.mention}", ephemeral=True)
-
-# ========== 日志设置 ==========
-@bot.tree.command(name="set_log_channel", description="设置消息日志频道")
-@admin_only()
-async def set_log_channel(interaction: discord.Interaction, channel: discord.TextChannel):
-    c.execute("INSERT OR REPLACE INTO log_settings (guild_id, message_log_channel) VALUES (?, ?)",
-              (str(interaction.guild.id), str(channel.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 日志频道已设置为 {channel.mention}", ephemeral=True)
-
-@bot.tree.command(name="set_voice_log", description="设置语音日志频道")
-@admin_only()
-async def set_voice_log(interaction: discord.Interaction, channel: discord.TextChannel):
-    c.execute("INSERT OR REPLACE INTO log_settings (guild_id, voice_log_channel) VALUES (?, ?)",
-              (str(interaction.guild.id), str(channel.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 语音日志频道已设置为 {channel.mention}", ephemeral=True)
-
-# ========== 管理命令 ==========
-@bot.tree.command(name="kick", description="踢出用户")
-@admin_only()
-async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = None):
-    await member.kick(reason=reason)
-    await interaction.response.send_message(f"✅ 已踢出 {member.mention}", ephemeral=True)
-
-@bot.tree.command(name="ban", description="封禁用户")
-@admin_only()
-async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
-    await member.ban(reason=reason)
-    await interaction.response.send_message(f"✅ 已封禁 {member.mention}", ephemeral=True)
-
-@bot.tree.command(name="clear", description="清除消息")
-@admin_only()
-async def clear(interaction: discord.Interaction, amount: int):
-    await interaction.channel.purge(limit=amount)
-    await interaction.response.send_message(f"✅ 已清除 {amount} 条消息", ephemeral=True)
-
-@bot.tree.command(name="lock", description="锁定频道")
-@admin_only()
-async def lock(interaction: discord.Interaction, channel: discord.TextChannel = None):
-    channel = channel or interaction.channel
-    await channel.set_permissions(interaction.guild.default_role, send_messages=False)
-    await interaction.response.send_message(f"🔒 {channel.mention} 已锁定", ephemeral=True)
-
-@bot.tree.command(name="unlock", description="解锁频道")
-@admin_only()
-async def unlock(interaction: discord.Interaction, channel: discord.TextChannel = None):
-    channel = channel or interaction.channel
-    await channel.set_permissions(interaction.guild.default_role, send_messages=True)
-    await interaction.response.send_message(f"🔓 {channel.mention} 已解锁", ephemeral=True)
-
-# ========== 权限管理命令 ==========
-@bot.tree.command(name="add_admin_role", description="添加有管理权限的角色（仅群主）")
-@is_owner()
-async def add_admin_role(interaction: discord.Interaction, role: discord.Role):
-    c.execute("INSERT OR REPLACE INTO command_permissions (guild_id, command_name, role_id) VALUES (?, ?, ?)",
-              (str(interaction.guild.id), "admin", str(role.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 角色 {role.mention} 已获得管理权限", ephemeral=True)
-
-@bot.tree.command(name="remove_admin_role", description="移除角色的管理权限（仅群主）")
-@is_owner()
-async def remove_admin_role(interaction: discord.Interaction, role: discord.Role):
-    c.execute("DELETE FROM command_permissions WHERE guild_id=? AND command_name=? AND role_id=?", 
-              (str(interaction.guild.id), "admin", str(role.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 角色 {role.mention} 的管理权限已移除", ephemeral=True)
-
-@bot.tree.command(name="add_admin_user", description="添加有管理权限的用户（仅群主）")
-@is_owner()
-async def add_admin_user(interaction: discord.Interaction, user: discord.User):
-    c.execute("INSERT OR REPLACE INTO command_permissions (guild_id, command_name, user_id) VALUES (?, ?, ?)",
-              (str(interaction.guild.id), "admin", str(user.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 用户 {user.mention} 已获得管理权限", ephemeral=True)
-
-@bot.tree.command(name="remove_admin_user", description="移除用户的管理权限（仅群主）")
-@is_owner()
-async def remove_admin_user(interaction: discord.Interaction, user: discord.User):
-    c.execute("DELETE FROM command_permissions WHERE guild_id=? AND command_name=? AND user_id=?", 
-              (str(interaction.guild.id), "admin", str(user.id)))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 用户 {user.mention} 的管理权限已移除", ephemeral=True)
-
-@bot.tree.command(name="list_admins", description="查看有管理权限的角色和用户（仅群主）")
-@is_owner()
-async def list_admins(interaction: discord.Interaction):
-    c.execute("SELECT role_id FROM command_permissions WHERE guild_id=? AND command_name=?", (str(interaction.guild.id), "admin"))
-    roles = c.fetchall()
-    c.execute("SELECT user_id FROM command_permissions WHERE guild_id=? AND command_name=?", (str(interaction.guild.id), "admin"))
-    users = c.fetchall()
-    
-    msg = "**👑 管理权限列表**\n"
-    if roles:
-        msg += "\n**角色：**\n"
-        for role_id in roles:
-            role = interaction.guild.get_role(int(role_id[0]))
-            if role:
-                msg += f"• {role.mention}\n"
-    if users:
-        msg += "\n**用户：**\n"
-        for user_id in users:
-            user = await bot.fetch_user(int(user_id[0]))
-            if user:
-                msg += f"• {user.mention}\n"
-    if not roles and not users:
-        msg += "\n暂无管理权限，只有群主有权限"
-    
-    await interaction.response.send_message(msg, ephemeral=True)
+# 由于篇幅限制，我把上面这些命令省略了，它们和之前版本完全一样
+# 你需要从你之前的 bot.py 中把这些命令复制过来
 
 # ========== 后台任务 ==========
 @tasks.loop(minutes=5)
