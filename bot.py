@@ -86,53 +86,70 @@ def admin_only():
 # ==================== 等级卡片 ====================
 
 async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
-    width, height = 700, 160
+    width, height = 800, 200
     img = Image.new('RGBA', (width, height), (20, 22, 30))
     draw = ImageDraw.Draw(img)
     
-    # ========== 头像（左边） ==========
+    # ========== 头像（左上角） ==========
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(member.display_avatar.url) as resp:
+            async with session.get(member.display_avatar.url.replace("?size=1024", "?size=512")) as resp:
                 if resp.status == 200:
                     avatar_data = await resp.read()
                     avatar = Image.open(io.BytesIO(avatar_data)).convert('RGBA')
-                    avatar = avatar.resize((70, 70))
+                    avatar = avatar.resize((90, 90), Image.Resampling.LANCZOS)
                     
-                    mask = Image.new('L', (70, 70), 0)
+                    mask = Image.new('L', (90, 90), 0)
                     mask_draw = ImageDraw.Draw(mask)
-                    mask_draw.ellipse((0, 0, 70, 70), fill=255)
+                    mask_draw.ellipse((0, 0, 90, 90), fill=255)
                     
-                    avatar_circular = Image.new('RGBA', (70, 70))
+                    avatar_circular = Image.new('RGBA', (90, 90))
                     avatar_circular.paste(avatar, (0, 0), avatar)
                     avatar_circular.putalpha(mask)
                     
-                    img.paste(avatar_circular, (20, 20), avatar_circular)
+                    img.paste(avatar_circular, (25, 25), avatar_circular)
     except:
-        draw.ellipse((20, 20, 90, 90), fill=(80, 85, 100))
+        draw.ellipse((25, 25, 115, 115), fill=(80, 85, 100))
     
     # ========== 字体 ==========
     try:
-        name_font = ImageFont.truetype("arial.ttf", 24)
+        name_font = ImageFont.truetype("arial.ttf", 32)
         info_font = ImageFont.truetype("arial.ttf", 18)
     except:
         name_font = ImageFont.load_default()
         info_font = ImageFont.load_default()
     
-    # ========== 用户名 ==========
-    draw.text((110, 25), f"@{member.display_name}", fill=(255, 255, 255), font=name_font)
+    # ========== 昵称 ==========
+    nickname = member.display_name[:14] + "..." if len(member.display_name) > 14 else member.display_name
+    draw.text((135, 30), nickname, fill=(255, 255, 255), font=name_font)
     
-    # ========== 等级信息 ==========
-    draw.text((110, 55), f"Level: {level}   XP: {xp} / {needed_xp}   Rank: #{rank}", fill=(212, 175, 55), font=info_font)
+    # ========== 青蓝色横线（在昵称下面） ==========
+    draw.line([(135, 70), (700, 70)], fill=(0, 180, 200), width=3)
+    
+    # ========== 等级信息（在横线下面） ==========
+    draw.text((135, 90), f"LEVEL {level}", fill=(255, 255, 255), font=info_font)
+    draw.text((330, 90), f"XP {xp} / {needed_xp}", fill=(255, 255, 255), font=info_font)
+    draw.text((580, 90), f"RANK #{rank}", fill=(255, 255, 255), font=info_font)
+    
+    # ========== 右边青蓝色斜线边框 ==========
+    # 顶部斜线
+    draw.line([(700, 70), (730, 90)], fill=(0, 180, 200), width=3)
+    # 右边斜线
+    draw.line([(730, 90), (730, 130)], fill=(0, 180, 200), width=3)
+    # 底部斜线
+    draw.line([(730, 130), (700, 150)], fill=(0, 180, 200), width=3)
     
     # ========== 进度条 ==========
-    bar_x, bar_y = 110, 90
-    bar_w, bar_h = 540, 14
-    draw.rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], fill=(50, 55, 70))
+    bar_x, bar_y = 25, 150
+    bar_w, bar_h = 670, 16
     
+    # 进度条背景（白色）
+    draw.rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], fill=(255, 255, 255))
+    
+    # 进度条进度（青蓝色）
     progress = int((xp / needed_xp) * bar_w) if needed_xp > 0 else 0
     if progress > 0:
-        draw.rectangle([bar_x, bar_y, bar_x + progress, bar_y + bar_h], fill=(212, 175, 55))
+        draw.rectangle([bar_x, bar_y, bar_x + progress, bar_y + bar_h], fill=(0, 180, 200))
     
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
