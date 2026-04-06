@@ -85,15 +85,17 @@ def admin_only():
 
 # ==================== 等级卡片 ====================
 
+FONT_BOLD    = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+FONT_REGULAR = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+
 async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     width, height = 800, 200
-    img = Image.new('RGBA', (width, height), (35, 39, 42))
+    img  = Image.new('RGBA', (width, height), (35, 39, 42))
     draw = ImageDraw.Draw(img)
 
     teal = (65, 183, 183)
 
     # ========== 右侧斜切装饰块 ==========
-    # 斜边: 顶(532,0) → 底(684,200)，斜率0.76
     draw.polygon([
         (532, 0),
         (800, 0),
@@ -101,9 +103,10 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
         (684, 200),
     ], fill=teal)
 
-    # ========== 头像（圆形，直径135，左上角(9,14)） ==========
-    avatar_size = 135
-    avatar_x, avatar_y = 9, 14
+    # ========== 头像（圆形，直径115，垂直居中） ==========
+    avatar_size = 115
+    avatar_x    = 18
+    avatar_y    = (height - avatar_size) // 2
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -130,54 +133,37 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
         )
 
     # ========== 字体 ==========
-    try:
-        name_font = ImageFont.truetype("arialbd.ttf", 29)  # 字高24px
-        info_font = ImageFont.truetype("arial.ttf",   20)  # 字高20px
-    except:
-        try:
-            name_font = ImageFont.truetype("arial.ttf", 29)
-            info_font = ImageFont.truetype("arial.ttf", 20)
-        except:
-            name_font = ImageFont.load_default()
-            info_font = ImageFont.load_default()
+    name_font = ImageFont.truetype(FONT_BOLD,    52)
+    info_font = ImageFont.truetype(FONT_REGULAR, 32)
 
-    # ========== 用户名（x=152, y=40） ==========
+    # ========== 用户名（x=152, y=25） ==========
     nickname = member.display_name[:18] + "..." if len(member.display_name) > 18 else member.display_name
-    draw.text((152, 40), f"@{nickname}", fill=(255, 255, 255), font=name_font)
+    draw.text((152, 25), f"@{nickname}", fill=(255, 255, 255), font=name_font)
 
-    # ========== 青蓝色分隔线（y=80, x=150~699） ==========
+    # ========== 青蓝色分隔线（y=80） ==========
     draw.line([(150, 80), (699, 80)], fill=teal, width=3)
 
-    # ========== info 三列（y=104，x位置精确对齐） ==========
-    # 实测: Level起x=153, XP起x=273, Rank起x=434
-    info_y = 104
-    draw.text((153, info_y), f"Level: {level}",          fill=(210, 215, 218), font=info_font)
-    draw.text((273, info_y), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=info_font)
-    draw.text((434, info_y), f"Rank: {rank}",            fill=(210, 215, 218), font=info_font)
+    # ========== info 三列（y=95） ==========
+    draw.text((152, 95), f"Level: {level}",          fill=(210, 215, 218), font=info_font)
+    draw.text((330, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=info_font)
+    draw.text((510, 95), f"Rank: {rank}",            fill=(210, 215, 218), font=info_font)
 
-    # ========== 进度条（y=150, 高34px, x=11~639, 圆角17） ==========
-    bar_x, bar_y = 11, 150
-    bar_w, bar_h = 628, 34
-    radius = 17
+    # ========== 进度条（y=150, 高34, 宽628, 圆角17） ==========
+    bar_x, bar_y, bar_w, bar_h, r = 11, 150, 628, 34, 17
 
-    # 白色背景
-    draw.rounded_rectangle(
-        [bar_x, bar_y, bar_x + bar_w, bar_y + bar_h],
-        radius=radius, fill=(255, 255, 255)
-    )
+    draw.rounded_rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h],
+                           radius=r, fill=(255, 255, 255))
 
-    # 青蓝色进度（XP=0时只显示左端圆头）
     progress = int((xp / needed_xp) * bar_w) if needed_xp > 0 else 0
-    fill_w = max(progress, radius * 2)  # 最少画出一个圆头
-    draw.rounded_rectangle(
-        [bar_x, bar_y, bar_x + fill_w, bar_y + bar_h],
-        radius=radius, fill=teal
-    )
+    fill_w   = max(progress, r * 2)
+    draw.rounded_rectangle([bar_x, bar_y, bar_x + fill_w, bar_y + bar_h],
+                           radius=r, fill=teal)
 
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
     return img_bytes
+
 # ==================== 等级系统 ====================
 
 @bot.event
