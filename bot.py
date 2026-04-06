@@ -178,7 +178,6 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
     return img_bytes
-
 # ==================== 等级系统 ====================
 
 @bot.event
