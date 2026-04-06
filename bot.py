@@ -308,7 +308,34 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
 
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
-    await slash_level(interaction, member)
+    member = member or interaction.user
+    user_data = get_user_data(interaction.guild.id, member.id)
+    rank_pos = get_rank(interaction.guild.id, member.id)
+    needed_xp = user_data["level"] * 50
+    
+    settings = get_guild_settings(interaction.guild.id)
+    
+    card_settings = Settings(
+        background=settings["card_background"] or "https://i.imgur.com/5O7xmVe.png",
+        bar_color=settings["card_color"],
+        text_color="white",
+        background_color="#2C2F33"
+    )
+    
+    rank_card = RankCard(
+        settings=card_settings,
+        avatar=member.display_avatar.url,
+        level=user_data["level"],
+        current_exp=user_data["xp"],
+        max_exp=needed_xp,
+        username=member.name,
+        rank=rank_pos,
+        server_name=interaction.guild.name
+    )
+    
+    image_bytes = await rank_card.card1()
+    file = discord.File(image_bytes, filename="level.png")
+    await interaction.response.send_message(file=file)
 
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
