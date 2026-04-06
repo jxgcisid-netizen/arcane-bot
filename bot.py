@@ -173,11 +173,9 @@ def get_rank(guild_id, user_id):
 
 # ========== 等级卡片图片生成 ==========
 async def create_level_card(member, level, xp, needed_xp, rank, guild_name, settings):
-    # 创建画布
     img = Image.new('RGB', (800, 300), color='#2C2F33')
     draw = ImageDraw.Draw(img)
     
-    # 加载字体
     try:
         title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
@@ -187,44 +185,85 @@ async def create_level_card(member, level, xp, needed_xp, rank, guild_name, sett
         font = ImageFont.load_default()
         small_font = ImageFont.load_default()
     
-    # 获取用户头像
     avatar_url = member.display_avatar.url
     async with aiohttp.ClientSession() as session:
         async with session.get(avatar_url) as resp:
             avatar_data = await resp.read()
     avatar_img = Image.open(io.BytesIO(avatar_data)).resize((80, 80))
     
-    # 制作圆形头像
     mask = Image.new('L', (80, 80), 0)
     mask_draw = ImageDraw.Draw(mask)
     mask_draw.ellipse((0, 0, 80, 80), fill=255)
     img.paste(avatar_img, (30, 110), mask)
     
-    # 画用户名
     draw.text((130, 120), member.name, fill='white', font=title_font)
-    
-    # 画等级
     draw.text((130, 165), f"Level {level}", fill='#FFD700', font=font)
-    
-    # 画排名
     draw.text((130, 200), f"Rank #{rank}", fill='#a78bfa', font=small_font)
-    
-    # 画服务器名称
     draw.text((730, 280), guild_name, fill='#6c6c8e', font=small_font, anchor='rb')
     
-    # 画经验条背景
     bar_width = 400
     bar_height = 20
     draw.rectangle([130, 245, 130 + bar_width, 245 + bar_height], outline='#5865F2', width=2, fill='#1a1a2e')
     
-    # 画经验条进度
     progress = int((xp / needed_xp) * bar_width) if needed_xp > 0 else 0
     draw.rectangle([130, 245, 130 + progress, 245 + bar_height], fill=settings["card_color"])
     
-    # 画经验文字
     draw.text((130, 275), f"{xp} / {needed_xp} XP", fill='#a0a0c0', font=small_font)
     
-    # 保存到内存
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    return img_bytes
+
+# ========== 排行榜图片生成 ==========
+async def create_leaderboard_image(guild_name, top_users):
+    height = 150 + len(top_users) * 55
+    img = Image.new('RGB', (800, height), color='#2C2F33')
+    draw = ImageDraw.Draw(img)
+    
+    try:
+        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
+        header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+    except:
+        title_font = ImageFont.load_default()
+        header_font = ImageFont.load_default()
+        font = ImageFont.load_default()
+    
+    draw.text((400, 30), f"{guild_name} 等级排行榜", fill='white', font=title_font, anchor='mt')
+    draw.text((60, 80), "排名", fill='#a78bfa', font=header_font)
+    draw.text((160, 80), "玩家", fill='#a78bfa', font=header_font)
+    draw.text((500, 80), "等级", fill='#a78bfa', font=header_font)
+    draw.text((620, 80), "经验", fill='#a78bfa', font=header_font)
+    draw.line([(40, 110), (760, 110)], fill='#5865F2', width=2)
+    
+    y = 130
+    for i, (user_id, level, xp) in enumerate(top_users, 1):
+        try:
+            user = await bot.fetch_user(int(user_id))
+            name = user.name[:20]
+        except:
+            name = f"用户{user_id[:8]}"
+        
+        if i == 1:
+            rank_color = "#FFD700"
+            medal = "🥇"
+        elif i == 2:
+            rank_color = "#C0C0C0"
+            medal = "🥈"
+        elif i == 3:
+            rank_color = "#CD7F32"
+            medal = "🥉"
+        else:
+            rank_color = "white"
+            medal = f"{i}"
+        
+        draw.text((60, y), medal, fill=rank_color, font=font)
+        draw.text((160, y), name, fill="white", font=font)
+        draw.text((500, y), str(level), fill="white", font=font)
+        draw.text((620, y), str(xp), fill="white", font=font)
+        y += 50
+    
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
@@ -331,8 +370,6 @@ async def on_voice_state_update(member, before, after):
 
 # ========== 斜杠命令 ==========
 
-# 等级卡片（图片版）
-# 等级卡片 - 主命令
 @bot.tree.command(name="level", description="查看自己的等级卡片")
 async def slash_level(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
@@ -344,13 +381,7 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     
     try:
         img_bytes = await create_level_card(
-            member, 
-            user_data["level"], 
-            user_data["xp"], 
-            needed_xp, 
-            rank_pos, 
-            interaction.guild.name,
-            settings
+            member, user_data["level"], user_data["xp"], needed_xp, rank_pos, interaction.guild.name, settings
         )
         file = discord.File(img_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
@@ -362,12 +393,10 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
         )
         await interaction.response.send_message(embed=embed)
 
-# rank 作为别名，调用同一个函数
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
     await slash_level(interaction, member)
 
-# 排行榜
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
     c.execute("SELECT user_id, level, xp FROM users WHERE guild_id=? ORDER BY level DESC, xp DESC LIMIT 10", (str(interaction.guild.id),))
@@ -377,31 +406,24 @@ async def slash_leaderboard(interaction: discord.Interaction):
         await interaction.response.send_message("📭 暂无数据")
         return
     
-    embed = discord.Embed(title="🏆 等级排行榜", color=discord.Color.gold())
-    for i, (user_id, level, xp) in enumerate(top_users, 1):
-        try:
-            user = await bot.fetch_user(int(user_id))
-            name = user.name
-        except:
-            name = f"用户{user_id[:8]}"
-        
-        if i == 1:
-            medal = "🥇 "
-        elif i == 2:
-            medal = "🥈 "
-        elif i == 3:
-            medal = "🥉 "
-        else:
-            medal = ""
-        
-        embed.add_field(name=f"{medal}{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
-    await interaction.response.send_message(embed=embed)
+    try:
+        img_bytes = await create_leaderboard_image(interaction.guild.name, top_users)
+        file = discord.File(img_bytes, filename="leaderboard.png")
+        await interaction.response.send_message(file=file)
+    except Exception as e:
+        embed = discord.Embed(title="🏆 等级排行榜", color=discord.Color.gold())
+        for i, (user_id, level, xp) in enumerate(top_users, 1):
+            try:
+                user = await bot.fetch_user(int(user_id))
+                name = user.name
+            except:
+                name = f"用户{user_id[:8]}"
+            embed.add_field(name=f"{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
+        await interaction.response.send_message(embed=embed)
 
-# 用户信息
 @bot.tree.command(name="userinfo", description="查看用户信息")
 async def slash_userinfo(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
-    
     embed = discord.Embed(title=f"{member.name} 的信息", color=member.color)
     embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
     embed.add_field(name="ID", value=member.id, inline=True)
@@ -409,14 +431,11 @@ async def slash_userinfo(interaction: discord.Interaction, member: discord.Membe
     embed.add_field(name="注册时间", value=member.created_at.strftime("%Y-%m-%d"), inline=True)
     embed.add_field(name="最高角色", value=member.top_role.mention if member.top_role else "无", inline=True)
     embed.add_field(name="是否机器人", value="是" if member.bot else "否", inline=True)
-    
     await interaction.response.send_message(embed=embed)
 
-# 服务器信息
 @bot.tree.command(name="serverinfo", description="查看服务器信息")
 async def slash_serverinfo(interaction: discord.Interaction):
     guild = interaction.guild
-    
     embed = discord.Embed(title=guild.name, color=discord.Color.blue())
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
@@ -426,35 +445,26 @@ async def slash_serverinfo(interaction: discord.Interaction):
     embed.add_field(name="频道数量", value=len(guild.channels), inline=True)
     embed.add_field(name="角色数量", value=len(guild.roles), inline=True)
     embed.add_field(name="服务器所有者", value=guild.owner.mention if guild.owner else "未知", inline=True)
-    
     await interaction.response.send_message(embed=embed)
 
-# 用户头像
 @bot.tree.command(name="avatar", description="查看用户头像")
 async def slash_avatar(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
-    
     embed = discord.Embed(title=f"{member.name} 的头像", color=discord.Color.blue())
     embed.set_image(url=member.avatar.url if member.avatar else member.default_avatar.url)
     await interaction.response.send_message(embed=embed)
 
-# 邀请机器人
 @bot.tree.command(name="invite", description="邀请机器人到你的服务器")
 async def slash_invite(interaction: discord.Interaction):
     invite_url = f"https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands"
-    embed = discord.Embed(
-        title="📎 邀请我",
-        description=f"[点击这里邀请机器人]({invite_url})",
-        color=discord.Color.green()
-    )
+    embed = discord.Embed(title="📎 邀请我", description=f"[点击这里邀请机器人]({invite_url})", color=discord.Color.green())
     await interaction.response.send_message(embed=embed)
 
-# 帮助命令
 @bot.tree.command(name="help", description="查看帮助")
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(
         title="✨ Arcane Bot 帮助 ✨",
-        description="**等级系统**\n`/level` - 查看等级卡片\n`/leaderboard` - 排行榜\n`/add_level_role` - 设置等级奖励角色\n`/set_xp_rate` - 设置经验倍率\n\n"
+        description="**等级系统**\n`/level` 或 `/rank` - 查看等级卡片\n`/leaderboard` - 排行榜\n`/add_level_role` - 设置等级奖励角色\n`/set_xp_rate` - 设置经验倍率\n\n"
                     "**自定义命令**\n`/add_cmd` - 添加自定义命令\n`/del_cmd` - 删除自定义命令\n`/list_cmds` - 列出自定义命令\n\n"
                     "**反应角色**\n`/add_reaction_role` - 添加反应角色\n\n"
                     "**YouTube 通知**\n`/add_youtube` - 添加 YouTube 频道通知\n\n"
@@ -666,7 +676,7 @@ async def list_admins(interaction: discord.Interaction):
     
     await interaction.response.send_message(msg, ephemeral=True)
 
-# ========== 计数器后台任务 ==========
+# ========== 后台任务 ==========
 @tasks.loop(minutes=5)
 async def update_counters():
     for guild in bot.guilds:
@@ -690,7 +700,6 @@ async def update_counters():
                 message = template.replace("{count}", str(count))
                 await channel.edit(name=message)
 
-# ========== YouTube 检查后台任务 ==========
 @tasks.loop(minutes=10)
 async def check_youtube():
     if not os.getenv("YOUTUBE_API_KEY"):
@@ -723,7 +732,7 @@ async def check_youtube():
             except:
                 pass
 
-# ========== 欢迎消息事件 ==========
+# ========== 事件 ==========
 @bot.event
 async def on_member_join(member):
     c.execute("SELECT channel_id, message, background_url, color FROM welcome_settings WHERE guild_id=?", (str(member.guild.id),))
@@ -750,7 +759,6 @@ async def on_member_join(member):
             )
             await channel.send(embed=embed)
 
-# ========== 消息删除日志 ==========
 @bot.event
 async def on_message_delete(message):
     if message.author.bot:
@@ -774,25 +782,17 @@ async def on_ready():
     print(f"✅ {bot.user} 已上线！")
     print(f"已连接 {len(bot.guilds)} 个服务器")
     
-    # 清除全局命令（同步方法，不需要 await）
-    bot.tree.clear_commands(guild=None)
-    
-    # 清除每个服务器的命令
+    # 同步斜杠命令
     for guild in bot.guilds:
-        bot.tree.clear_commands(guild=guild)
-        print(f"✅ 已清除 {guild.name} 的旧命令")
-    
-    # 等待2秒确保清除完成
-    await asyncio.sleep(2)
-    
-    # 重新同步新命令
-    for guild in bot.guilds:
-        await bot.tree.sync(guild=guild)
-        print(f"✅ 已同步新命令到 {guild.name}")
+        try:
+            await bot.tree.sync(guild=guild)
+            print(f"✅ 已同步命令到服务器: {guild.name}")
+        except Exception as e:
+            print(f"❌ 同步失败: {e}")
     
     update_counters.start()
     if os.getenv("YOUTUBE_API_KEY"):
         check_youtube.start()
-        
+
 # ========== 运行 ==========
 bot.run(TOKEN)
