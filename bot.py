@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import sqlite3
 from collections import defaultdict
 import re
-from discord_leveling_card import RankCard
+from pilcord import RankCard, CardSettings
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -278,16 +278,23 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     needed_xp = user_data["level"] * 50
     
     try:
-        card = RankCard(
+        card_settings = CardSettings(
+            bar_color="#5865F2",
+            text_color="white",
+            background_color="#2C2F33"
+        )
+        
+        rank_card = RankCard(
+            settings=card_settings,
             avatar=member.display_avatar.url,
-            username=member.name,
             level=user_data["level"],
-            current_xp=user_data["xp"],
-            next_xp=needed_xp,
+            current_exp=user_data["xp"],
+            max_exp=needed_xp,
+            username=member.name,
             rank=rank_pos
         )
         
-        image_bytes = await card.build()
+        image_bytes = await rank_card.card1()
         file = discord.File(image_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
     except Exception as e:
@@ -411,22 +418,6 @@ async def set_xp_rate(interaction: discord.Interaction, rate: float):
     c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, xp_rate) VALUES (?, ?)", (str(interaction.guild.id), rate))
     conn.commit()
     await interaction.response.send_message(f"✅ 经验倍率已设置为 {rate}x", ephemeral=True)
-
-@bot.tree.command(name="set_card_bg", description="设置等级卡片背景图")
-@admin_only()
-async def set_card_bg(interaction: discord.Interaction, url: str):
-    c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, card_background) VALUES (?, ?)", (str(interaction.guild.id), url))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 等级卡片背景已更新", ephemeral=True)
-
-@bot.tree.command(name="set_card_color", description="设置等级卡片进度条颜色")
-@admin_only()
-async def set_card_color(interaction: discord.Interaction, color: str):
-    if not color.startswith("#"):
-        color = "#" + color
-    c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, card_color) VALUES (?, ?)", (str(interaction.guild.id), color))
-    conn.commit()
-    await interaction.response.send_message(f"✅ 等级卡片颜色已设置为 {color}", ephemeral=True)
 
 # ========== 自定义命令 ==========
 @bot.tree.command(name="add_cmd", description="添加自定义命令")
