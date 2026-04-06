@@ -134,7 +134,7 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
 
     # ========== 字体 ==========
     name_font = ImageFont.truetype(FONT_BOLD,    38)
-    info_font = ImageFont.truetype(FONT_REGULAR, 22)
+    info_font = ImageFont.truetype(FONT_REGULAR, 32)
 
     # ========== 用户名 ==========
     nickname = member.display_name[:18] + "..." if len(member.display_name) > 18 else member.display_name
@@ -144,9 +144,9 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     draw.line([(150, 82), (699, 82)], fill=teal, width=2)
 
     # ========== info 三列 ==========
-    draw.text((152, 90), f"Level: {level}",          fill=(210, 215, 218), font=info_font)
-    draw.text((310, 90), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=info_font)
-    draw.text((490, 90), f"Rank: {rank}",            fill=(210, 215, 218), font=info_font)
+    draw.text((152, 95), f"Level: {level}",          fill=(210, 215, 218), font=info_font)
+    draw.text((330, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=info_font)
+    draw.text((510, 95), f"Rank: {rank}",            fill=(210, 215, 218), font=info_font)
 
     # ========== 进度条 ==========
     bar_x, bar_y, bar_w, bar_h, r = 11, 150, 628, 34, 17
