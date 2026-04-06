@@ -85,34 +85,26 @@ def admin_only():
 
 # ==================== 等级卡片 ====================
 
+
 async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
-    width, height = 800, 170
-    img = Image.new('RGBA', (width, height), (28, 30, 38))  # 深灰背景
+    width, height = 800, 200
+    img = Image.new('RGBA', (width, height), (35, 39, 42))  # 精确背景色
     draw = ImageDraw.Draw(img)
 
-    teal = (64, 196, 196)       # 青蓝色（图片取色）
-    dark_teal = (45, 160, 160)  # 深一点的青蓝色（右侧小三角）
+    teal = (65, 183, 183)  # 精确取色
 
-    # ========== 右侧斜切青蓝色大块 ==========
-    # 左边界是斜线：从 (665, 0) 到 (635, 170)
+    # ========== 右侧斜切青蓝色装饰块 ==========
+    # 左边界：顶部x=532，底部x=684（精确测量：每10px移动约7.4px）
     draw.polygon([
-        (665, 0),    # 左上（斜切起点）
-        (800, 0),    # 右上
-        (800, 170),  # 右下
-        (635, 170),  # 左下（斜切终点）
+        (532, 0),
+        (800, 0),
+        (800, 200),
+        (684, 200),
     ], fill=teal)
 
-    # 右侧更深色小三角（最右边缘）
-    draw.polygon([
-        (745, 0),
-        (800, 0),
-        (800, 170),
-        (770, 170),
-    ], fill=dark_teal)
-
-    # ========== 头像 ==========
-    avatar_size = 130
-    avatar_x, avatar_y = 18, (height - avatar_size) // 2  # 垂直居中
+    # ========== 头像（圆形，x=15, y=15, 直径120） ==========
+    avatar_size = 120
+    avatar_x, avatar_y = 15, 15
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -139,65 +131,56 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
 
     # ========== 字体 ==========
     try:
-        name_font = ImageFont.truetype("arialbd.ttf", 30)
-        info_font = ImageFont.truetype("arial.ttf", 19)
+        name_font = ImageFont.truetype("arialbd.ttf", 36)
+        info_font = ImageFont.truetype("arial.ttf", 20)
     except:
         try:
-            name_font = ImageFont.truetype("arial.ttf", 30)
-            info_font = ImageFont.truetype("arial.ttf", 19)
+            name_font = ImageFont.truetype("arial.ttf", 36)
+            info_font = ImageFont.truetype("arial.ttf", 20)
         except:
             name_font = ImageFont.load_default()
             info_font = ImageFont.load_default()
 
-    # ========== 用户名 ==========
-    text_x = 162
+    # ========== 用户名（文字起始x=152，y约30） ==========
+    text_x = 152
     nickname = member.display_name[:16] + "..." if len(member.display_name) > 16 else member.display_name
-    draw.text((text_x, 18), f"@{nickname}", fill=(255, 255, 255), font=name_font)
+    draw.text((text_x, 28), f"@{nickname}", fill=(255, 255, 255), font=name_font)
 
-    # ========== 青蓝色分隔线（用户名下方） ==========
-    line_y = 60
-    draw.line([(text_x, line_y), (658, line_y)], fill=teal, width=2)
+    # ========== 青蓝色分隔线（y=80~81，x=152~719） ==========
+    draw.line([(text_x, 80), (719, 80)], fill=teal, width=2)
 
-    # ========== Level / XP / Rank 信息 ==========
-    info_y = 72
-    draw.text((text_x,       info_y), f"Level: {level}",          fill=(210, 215, 220), font=info_font)
-    draw.text((text_x + 150, info_y), f"XP: {xp} / {needed_xp}", fill=(210, 215, 220), font=info_font)
-    draw.text((text_x + 370, info_y), f"Rank: {rank}",            fill=(210, 215, 220), font=info_font)
+    # ========== Level / XP / Rank 信息（y约100） ==========
+    info_y = 100
+    draw.text((text_x,       info_y), f"Level: {level}",          fill=(210, 215, 218), font=info_font)
+    draw.text((text_x + 170, info_y), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=info_font)
+    draw.text((text_x + 400, info_y), f"Rank: {rank}",            fill=(210, 215, 218), font=info_font)
 
-    # ========== 进度条（底部） ==========
-    bar_x, bar_y = 18, 138
-    bar_w, bar_h = 630, 16
-    radius = bar_h // 2
+    # ========== 进度条（y=150~184，x=11~639） ==========
+    bar_x, bar_y = 11, 150
+    bar_w, bar_h = 628, 34
+    radius = bar_h // 2  # 17
 
     # 白色背景（圆角）
     draw.rounded_rectangle(
         [bar_x, bar_y, bar_x + bar_w, bar_y + bar_h],
         radius=radius,
-        fill=(230, 232, 236)
+        fill=(255, 255, 255)
     )
 
     # 青蓝色进度（圆角）
     progress = int((xp / needed_xp) * bar_w) if needed_xp > 0 else 0
-    min_progress = radius * 2  # 至少显示一个圆头（图片中XP=0时仍有小圆点）
-    actual_progress = max(progress, min_progress) if xp > 0 or True else 0
-    # 图片中即使XP=0也显示了一个小青蓝色圆点在最左边
+    min_draw = radius * 2  # 至少画出左端圆头（图片中XP=0时有小圆点）
+    draw_w = max(progress, min_draw)
     draw.rounded_rectangle(
-        [bar_x, bar_y, bar_x + min_progress, bar_y + bar_h],
+        [bar_x, bar_y, bar_x + draw_w, bar_y + bar_h],
         radius=radius,
         fill=teal
     )
-    if progress > min_progress:
-        draw.rounded_rectangle(
-            [bar_x, bar_y, bar_x + progress, bar_y + bar_h],
-            radius=radius,
-            fill=teal
-        )
 
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
     return img_bytes
-
 # ==================== 等级系统 ====================
 
 @bot.event
