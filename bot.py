@@ -133,8 +133,16 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
         )
 
     # ========== 字体 ==========
-    name_font = ImageFont.truetype(FONT_BOLD,    38)
-    info_font = ImageFont.truetype(FONT_REGULAR, 30)
+    try:
+        name_font = ImageFont.truetype(FONT_BOLD, 38)
+        info_font = ImageFont.truetype(FONT_REGULAR, 30)
+    except:
+        try:
+            name_font = ImageFont.truetype("arialbd.ttf", 38)
+            info_font = ImageFont.truetype("arial.ttf", 30)
+        except:
+            name_font = ImageFont.load_default()
+            info_font = ImageFont.load_default()
 
     # ========== 用户名 ==========
     nickname = member.display_name[:18] + "..." if len(member.display_name) > 18 else member.display_name
@@ -147,7 +155,6 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     except:
         name_width = len(f"@{nickname}") * 22
     
-    # 线条从用户名左边开始，到用户名右边结束
     line_start_x = 152
     line_end_x = 152 + name_width
     
@@ -174,7 +181,128 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
     return img_bytes
+
+# ==================== 排行榜卡片 ====================
+
+async def create_leaderboard_card(guild, top_users):
+    row_h = 75
+    avatar_size = 58
+    margin_left = 12
     
+    img_w = 680
+    img_h = row_h * len(top_users)
+    bg_color = (35, 39, 42)
+    teal = (75, 172, 172)
+    orange = (240, 180, 30)
+    white = (255, 255, 255)
+    gray_text = (170, 175, 180)
+    progress_bg = (50, 55, 58)
+    separator_color = (30, 33, 36)
+    
+    img = Image.new('RGBA', (img_w, img_h), bg_color)
+    draw = ImageDraw.Draw(img)
+    
+    # 字体
+    try:
+        font_rank = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
+        font_info = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+    except:
+        try:
+            font_rank = ImageFont.truetype("arialbd.ttf", 26)
+            font_info = ImageFont.truetype("arial.ttf", 22)
+        except:
+            font_rank = ImageFont.load_default()
+            font_info = ImageFont.load_default()
+    
+    for i, user in enumerate(top_users):
+        rank = i + 1
+        member = user['member']
+        level = user['level']
+        xp = user['xp']
+        needed = user['needed_xp']
+        y_top = i * row_h
+        
+        # 头像
+        avatar_y = y_top + (row_h - avatar_size) // 2
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                avatar_url = member.display_avatar.url.replace("?size=1024", "?size=128")
+                async with session.get(avatar_url) as resp:
+                    if resp.status == 200:
+                        av_data = await resp.read()
+                        av = Image.open(io.BytesIO(av_data)).convert('RGBA')
+                        av = av.resize((avatar_size, avatar_size), Image.Resampling.LANCZOS)
+                        img.paste(av, (margin_left, avatar_y), av)
+        except:
+            draw.rectangle(
+                [margin_left, avatar_y, margin_left + avatar_size, avatar_y + avatar_size],
+                fill=(60, 65, 70)
+            )
+        
+        # 文本区域
+        rank_color = orange if rank <= 3 else white
+        rank_str = f"#{rank}"
+        
+        text_x = margin_left + avatar_size + 18
+        text_y = y_top + (row_h - 26) // 2
+        
+        draw.text((text_x, text_y), rank_str, fill=rank_color, font=font_rank)
+        
+        try:
+            rank_w = draw.textlength(rank_str, font=font_rank)
+        except:
+            rank_w = len(rank_str) * 15
+        
+        dot_x = text_x + int(rank_w) + 10
+        draw.text((dot_x, text_y), "•", fill=gray_text, font=font_info)
+        
+        nickname = member.display_name
+        if len(nickname) > 16:
+            nickname = nickname[:15] + "…"
+        name_str = f"@{nickname}"
+        
+        name_x = dot_x + 16
+        draw.text((name_x, text_y), name_str, fill=white, font=font_info)
+        
+        try:
+            name_w = draw.textlength(name_str, font=font_info)
+        except:
+            name_w = len(name_str) * 12
+        
+        lvl_dot_x = name_x + int(name_w) + 10
+        draw.text((lvl_dot_x, text_y), "•", fill=gray_text, font=font_info)
+        
+        lvl_x = lvl_dot_x + 16
+        draw.text((lvl_x, text_y), f"LVL: {level}", fill=white, font=font_info)
+        
+        # 进度条
+        bar_y = y_top + row_h - 8
+        bar_height = 4
+        bar_start = margin_left
+        bar_end = img_w - margin_left
+        
+        draw.rectangle([bar_start, bar_y, bar_end, bar_y + bar_height], fill=progress_bg)
+        
+        if needed > 0:
+            bar_width = bar_end - bar_start
+            progress = int((xp / needed) * bar_width)
+            if progress > 0:
+                draw.rectangle(
+                    [bar_start, bar_y, bar_start + progress, bar_y + bar_height],
+                    fill=teal
+                )
+        
+        # 分隔线
+        if i < len(top_users) - 1:
+            sep_y = y_top + row_h
+            draw.line([(0, sep_y), (img_w, sep_y)], fill=separator_color, width=1)
+    
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    return img_bytes
+
 # ==================== 等级系统 ====================
 
 @bot.event
@@ -289,33 +417,49 @@ async def slash_rank(interaction: discord.Interaction, member: discord.Member = 
         img_bytes = await create_rank_card(member, user_data["level"], user_data["xp"], needed_xp, rank_pos, interaction.guild.name)
         file = discord.File(img_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
-    except:
-        embed = discord.Embed(title=f"📊 {member.name}的等级", description=f"**等级：** {user_data['level']}\n**经验：** {user_data['xp']}/{needed_xp} XP\n**排名：** #{rank_pos}", color=discord.Color.blue())
+    except Exception as e:
+        print(f"生成等级卡片失败: {e}")
+        embed = discord.Embed(title=f"📊 {member.name} 的等级", description=f"**等级：** {user_data['level']}\n**经验：** {user_data['xp']}/{needed_xp} XP\n**排名：** #{rank_pos}", color=discord.Color.blue())
         embed.set_thumbnail(url=member.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
     c.execute("SELECT user_id, level, xp FROM users WHERE guild_id=? ORDER BY level DESC, xp DESC LIMIT 10", (str(interaction.guild.id),))
-    top_users = c.fetchall()
+    top_data = c.fetchall()
     
-    if not top_users:
+    if not top_data:
         await interaction.response.send_message("📊 暂无数据")
         return
     
-    description = ""
-    for i, (user_id, level, xp) in enumerate(top_users, 1):
-        try:
-            user = await bot.fetch_user(int(user_id))
-            name = user.name
-        except:
-            name = f"用户{user_id[:8]}"
-        
-        medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-        description += f"{medal} **{name}** - Lv.{level} ({xp} XP)\n"
+    top_users = []
+    for user_id, level, xp in top_data:
+        member = interaction.guild.get_member(int(user_id))
+        if not member:
+            try:
+                member = await bot.fetch_user(int(user_id))
+            except:
+                continue
+        needed_xp = level * 50
+        top_users.append({
+            "member": member,
+            "level": level,
+            "xp": xp,
+            "needed_xp": needed_xp
+        })
     
-    embed = discord.Embed(title=f"🏆 {interaction.guild.name} 等级排行榜", description=description, color=discord.Color.gold())
-    await interaction.response.send_message(embed=embed)
+    try:
+        img_bytes = await create_leaderboard_card(interaction.guild, top_users)
+        file = discord.File(img_bytes, filename="leaderboard.png")
+        await interaction.response.send_message(file=file)
+    except Exception as e:
+        print(f"生成排行榜失败: {e}")
+        description = ""
+        for i, user in enumerate(top_users, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            description += f"{medal} **{user['member'].display_name}** - Lv.{user['level']} ({user['xp']} XP)\n"
+        embed = discord.Embed(title=f"🏆 {interaction.guild.name} 等级排行榜", description=description, color=discord.Color.gold())
+        await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="add_level_role", description="添加等级奖励角色")
 @admin_only()
@@ -461,7 +605,7 @@ async def on_message_edit(before, after):
             embed = discord.Embed(title="✏️ 消息被编辑", description=f"**频道:** {before.channel.mention}\n**用户:** {before.author.mention}\n**之前:** {before.content[:500]}\n**之后:** {after.content[:500]}", color=discord.Color.blue(), timestamp=datetime.now())
             await channel.send(embed=embed)
 
-# ==================== 其他命令 ====================
+# ==================== 管理命令 ====================
 
 @bot.tree.command(name="kick", description="踢出用户")
 @admin_only()
@@ -503,7 +647,7 @@ async def userinfo(interaction: discord.Interaction, member: discord.Member = No
 @bot.tree.command(name="help", description="查看帮助")
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(title="🤖 Bot 帮助", color=discord.Color.green())
-    embed.add_field(name="📊 等级系统", value="/rank - 查看等级\n/leaderboard - 排行榜\n/add_level_role - 等级奖励\n/set_xp_rate - 经验倍率", inline=False)
+    embed.add_field(name="📊 等级系统", value="/rank - 查看等级卡片\n/leaderboard - 排行榜图片\n/add_level_role - 等级奖励\n/set_xp_rate - 经验倍率", inline=False)
     embed.add_field(name="🎭 反应角色", value="/add_reaction_role - 添加\n/remove_reaction_role - 移除", inline=False)
     embed.add_field(name="🔢 计数器", value="/add_counter - 添加\n/update_counter - 更新\n/remove_counter - 移除", inline=False)
     embed.add_field(name="📋 日志系统", value="/set_log_channel - 消息日志\n/set_voice_log - 语音日志\n/set_mod_log - 管理日志", inline=False)
