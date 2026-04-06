@@ -276,7 +276,6 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
-    # 使用免费 API 生成等级卡片图片
     url = f"https://api.voids.top/v1/rank?avatar={member.display_avatar.url}&username={member.name}&level={user_data['level']}&rank={rank_pos}&currentXp={user_data['xp']}&nextXp={needed_xp}"
     
     async with aiohttp.ClientSession() as session:
@@ -288,7 +287,19 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
 
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
-    await slash_level(interaction, member)
+    member = member or interaction.user
+    user_data = get_user_data(interaction.guild.id, member.id)
+    rank_pos = get_rank(interaction.guild.id, member.id)
+    needed_xp = user_data["level"] * 50
+    
+    url = f"https://api.voids.top/v1/rank?avatar={member.display_avatar.url}&username={member.name}&level={user_data['level']}&rank={rank_pos}&currentXp={user_data['xp']}&nextXp={needed_xp}"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            image_data = await resp.read()
+    
+    file = discord.File(image_data, filename="level.png")
+    await interaction.response.send_message(file=file)
 
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
