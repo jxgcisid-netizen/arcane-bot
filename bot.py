@@ -10,6 +10,8 @@ import sqlite3
 from collections import defaultdict
 import re
 import io
+from discord import File
+import canvacard
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
