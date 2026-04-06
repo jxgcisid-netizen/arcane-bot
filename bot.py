@@ -103,10 +103,10 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
         (684, 200),
     ], fill=teal)
 
-    # ========== 头像（圆形，直径115，垂直居中） ==========
+    # ========== 头像（Y位置提高） ==========
     avatar_size = 115
     avatar_x    = 18
-    avatar_y    = (height - avatar_size) // 2
+    avatar_y    = 15  # 原来是从中间垂直居中，现在改成从顶部往下15px
 
     try:
         async with aiohttp.ClientSession() as session:
