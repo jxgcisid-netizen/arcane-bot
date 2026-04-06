@@ -332,6 +332,7 @@ async def on_voice_state_update(member, before, after):
 # ========== 斜杠命令 ==========
 
 # 等级卡片（图片版）
+# 等级卡片 - 主命令
 @bot.tree.command(name="level", description="查看自己的等级卡片")
 async def slash_level(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
@@ -360,6 +361,11 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
             color=discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed)
+
+# rank 作为别名，调用同一个函数
+@bot.tree.command(name="rank", description="查看自己的等级卡片")
+async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
+    await slash_level(interaction, member)
 
 # 排行榜
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
