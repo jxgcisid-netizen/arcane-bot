@@ -7,6 +7,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 如果 requirements.txt 安装失败，单独安装
+RUN pip install git+https://github.com/krishsharma0413/DiscordLevelingCard.git
+
 COPY . .
 
 CMD ["python", "bot.py"]
