@@ -174,6 +174,38 @@ def get_rank(guild_id, user_id):
     return 0
 
 # ========== 等级卡片图片生成 ==========
+async def create_rank_card_html(username, level, xp, next_xp, rank, avatar_url, server_name):
+    progress = int(xp / next_xp * 100) if next_xp > 0 else 0
+    
+    template_path = "templates/rank_card.html"
+    with open(template_path, "r", encoding="utf-8") as f:
+        template = Template(f.read())
+    
+    html = template.render(
+        username=username,
+        level=level,
+        xp=xp,
+        next_xp=next_xp,
+        progress=progress,
+        rank=rank,
+        avatar_url=avatar_url,
+        server_name=server_name
+    )
+    
+    # 保存临时 HTML 文件
+    html_path = "/tmp/rank_card.html"
+    png_path = "/tmp/rank_card.png"
+    
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    
+    # 转换为图片
+    config = imgkit.config(wkhtmltoimage='/usr/bin/wkhtmltoimage')
+    imgkit.from_file(html_path, png_path, config=config)
+    
+    with open(png_path, "rb") as f:
+        return f.read()
+        
 async def create_level_card(member, level, xp, needed_xp, rank, guild_name, settings):
     img = Image.new('RGB', (800, 300), color='#2C2F33')
     draw = ImageDraw.Draw(img)
