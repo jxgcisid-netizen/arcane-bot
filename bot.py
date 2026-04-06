@@ -261,6 +261,17 @@ async def on_voice_state_update(member, before, after):
 
 # ==================== 斜杠命令 ====================
 
+@bot.command()
+async def findfonts(ctx):
+    import subprocess
+    result = subprocess.run(
+        'find / -name "*.ttf" 2>/dev/null',
+        shell=True, capture_output=True, text=True, timeout=15
+    )
+    lines = result.stdout.strip().split('\n')
+    msg = '\n'.join(lines[:50])  # 只发前50条
+    await ctx.send(f"```{msg}```")
+    
 @bot.event
 async def on_ready():
     await bot.tree.sync()
