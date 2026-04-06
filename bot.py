@@ -279,10 +279,8 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     
     settings = get_guild_settings(interaction.guild.id)
     
-    bg_url = settings["card_background"] if settings["card_background"] else None
-    
+    # 不使用 background 参数，只用纯色背景
     card_settings = Settings(
-        background=bg_url,
         bar_color=settings["card_color"],
         text_color="white",
         background_color="#2C2F33"
@@ -311,10 +309,7 @@ async def slash_rank(interaction: discord.Interaction, member: discord.Member = 
     
     settings = get_guild_settings(interaction.guild.id)
     
-    bg_url = settings["card_background"] if settings["card_background"] else None
-    
     card_settings = Settings(
-        background=bg_url,
         bar_color=settings["card_color"],
         text_color="white",
         background_color="#2C2F33"
