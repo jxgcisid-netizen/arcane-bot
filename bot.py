@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import sqlite3
 from collections import defaultdict
 import re
-from DiscordLevelingCard import RankCard, Settings
+from discord_leveling_card import RankCard
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -277,57 +277,30 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
-    settings = get_guild_settings(interaction.guild.id)
-    
-    # 不使用 background 参数，只用纯色背景
-    card_settings = Settings(
-        bar_color=settings["card_color"],
-        text_color="white",
-        background_color="#2C2F33"
-    )
-    
-    rank_card = RankCard(
-        settings=card_settings,
-        avatar=member.display_avatar.url,
-        level=user_data["level"],
-        current_exp=user_data["xp"],
-        max_exp=needed_xp,
-        username=member.name,
-        rank=rank_pos
-    )
-    
-    image_bytes = await rank_card.card1()
-    file = discord.File(image_bytes, filename="level.png")
-    await interaction.response.send_message(file=file)
+    try:
+        card = RankCard(
+            avatar=member.display_avatar.url,
+            username=member.name,
+            level=user_data["level"],
+            current_xp=user_data["xp"],
+            next_xp=needed_xp,
+            rank=rank_pos
+        )
+        
+        image_bytes = await card.build()
+        file = discord.File(image_bytes, filename="level.png")
+        await interaction.response.send_message(file=file)
+    except Exception as e:
+        embed = discord.Embed(
+            title=f"{member.name} 的等级",
+            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}",
+            color=discord.Color.blue()
+        )
+        await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    user_data = get_user_data(interaction.guild.id, member.id)
-    rank_pos = get_rank(interaction.guild.id, member.id)
-    needed_xp = user_data["level"] * 50
-    
-    settings = get_guild_settings(interaction.guild.id)
-    
-    card_settings = Settings(
-        bar_color=settings["card_color"],
-        text_color="white",
-        background_color="#2C2F33"
-    )
-    
-    rank_card = RankCard(
-        settings=card_settings,
-        avatar=member.display_avatar.url,
-        level=user_data["level"],
-        current_exp=user_data["xp"],
-        max_exp=needed_xp,
-        username=member.name,
-        rank=rank_pos
-    )
-    
-    image_bytes = await rank_card.card1()
-    file = discord.File(image_bytes, filename="level.png")
-    await interaction.response.send_message(file=file)
+    await slash_level(interaction, member)
 
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
@@ -401,7 +374,7 @@ async def slash_invite(interaction: discord.Interaction):
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(
         title="✨ Arcane Bot 帮助 ✨",
-        description="**等级系统**\n`/level` 或 `/rank` - 查看等级卡片\n`/leaderboard` - 排行榜\n`/add_level_role` - 设置等级奖励角色\n`/set_xp_rate` - 设置经验倍率\n`/set_card_bg` - 设置卡片背景\n`/set_card_color` - 设置卡片颜色\n\n"
+        description="**等级系统**\n`/level` 或 `/rank` - 查看等级卡片\n`/leaderboard` - 排行榜\n`/add_level_role` - 设置等级奖励角色\n`/set_xp_rate` - 设置经验倍率\n\n"
                     "**自定义命令**\n`/add_cmd` - 添加自定义命令\n`/del_cmd` - 删除自定义命令\n`/list_cmds` - 列出自定义命令\n\n"
                     "**反应角色**\n`/add_reaction_role` - 添加反应角色\n\n"
                     "**YouTube 通知**\n`/add_youtube` - 添加 YouTube 频道通知\n\n"
