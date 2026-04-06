@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 import json
+import imgkit
+from jinja2 import Template
 import os
 import aiohttp
 import asyncio
