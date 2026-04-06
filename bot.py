@@ -2,8 +2,6 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 import json
-import imgkit
-from jinja2 import Template
 import os
 import aiohttp
 import asyncio
@@ -11,9 +9,7 @@ from datetime import datetime, timedelta
 import sqlite3
 from collections import defaultdict
 import re
-from PIL import Image, ImageDraw, ImageFont
 import io
-import textwrap
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
