@@ -277,18 +277,18 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
-    # 获取服务器设置
     settings = get_guild_settings(interaction.guild.id)
     
-    # 配置卡片样式
+    # 使用背景图（如果有的话），否则用纯色
+    bg_url = settings["card_background"] if settings["card_background"] else None
+    
     card_settings = Settings(
-        background=settings["card_background"] or "https://i.imgur.com/5O7xmVe.png",
+        background=bg_url,
         bar_color=settings["card_color"],
         text_color="white",
         background_color="#2C2F33"
     )
     
-    # 创建等级卡片
     rank_card = RankCard(
         settings=card_settings,
         avatar=member.display_avatar.url,
@@ -300,9 +300,7 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
         server_name=interaction.guild.name
     )
     
-    # 生成图片（使用 card1 风格，最接近 Arcane）
     image_bytes = await rank_card.card1()
-    
     file = discord.File(image_bytes, filename="level.png")
     await interaction.response.send_message(file=file)
 
@@ -315,8 +313,10 @@ async def slash_rank(interaction: discord.Interaction, member: discord.Member = 
     
     settings = get_guild_settings(interaction.guild.id)
     
+    bg_url = settings["card_background"] if settings["card_background"] else None
+    
     card_settings = Settings(
-        background=settings["card_background"] or "https://i.imgur.com/5O7xmVe.png",
+        background=bg_url,
         bar_color=settings["card_color"],
         text_color="white",
         background_color="#2C2F33"
