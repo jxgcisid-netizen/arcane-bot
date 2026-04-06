@@ -87,60 +87,125 @@ def admin_only():
 
 async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     width, height = 900, 350
-    img = Image.new('RGB', (width, height))
+    img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     
+    # 1. 渐变背景
     for y in range(height):
         r = 20 + int(15 * y / height)
         g = 20 + int(10 * y / height)
         b = 40 + int(30 * y / height)
         draw.line([(0, y), (width, y)], fill=(r, g, b))
     
+    # 2. 下载头像
     try:
-        title_font = ImageFont.truetype("arial.ttf", 36)
-        level_font = ImageFont.truetype("arial.ttf", 28)
-        text_font = ImageFont.truetype("arial.ttf", 22)
-        small_font = ImageFont.truetype("arial.ttf", 18)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(member.display_avatar.url) as resp:
+                if resp.status == 200:
+                    avatar_data = await resp.read()
+                    avatar = Image.open(io.BytesIO(avatar_data)).convert('RGBA')
+                    avatar = avatar.resize((120, 120))
+                    
+                    # 制作圆形头像
+                    mask = Image.new('L', (120, 120), 0)
+                    mask_draw = ImageDraw.Draw(mask)
+                    mask_draw.ellipse((0, 0, 120, 120), fill=255)
+                    
+                    avatar_circular = Image.new('RGBA', (120, 120))
+                    avatar_circular.paste(avatar, (0, 0), avatar)
+                    avatar_circular.putalpha(mask)
+                    
+                    # 金色边框
+                    border_img = Image.new('RGBA', (130, 130), (0, 0, 0, 0))
+                    border_draw = ImageDraw.Draw(border_img)
+                    border_draw.ellipse((5, 5, 125, 125), outline=(255, 215, 0), width=4)
+                    border_img.paste(avatar_circular, (5, 5), avatar_circular)
+                    
+                    # 粘贴到头像位置 (45, 45)
+                    img.paste(border_img, (45, 45), border_img)
+                else:
+                    # 头像下载失败，画一个默认圆形
+                    draw.ellipse((45, 45, 165, 165), fill=(100, 100, 150), outline=(255, 215, 0), width=4)
+    except Exception as e:
+        print(f"头像处理失败: {e}")
+        # 画默认头像
+        draw.ellipse((45, 45, 165, 165), fill=(100, 100, 150), outline=(255, 215, 0), width=4)
+    
+    # 3. 字体设置
+    try:
+        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+        level_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
+        text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
     except:
-        title_font = ImageFont.load_default()
-        level_font = ImageFont.load_default()
-        text_font = ImageFont.load_default()
-        small_font = ImageFont.load_default()
+        try:
+            title_font = ImageFont.truetype("arial.ttf", 36)
+            level_font = ImageFont.truetype("arial.ttf", 28)
+            text_font = ImageFont.truetype("arial.ttf", 22)
+            small_font = ImageFont.truetype("arial.ttf", 18)
+        except:
+            title_font = ImageFont.load_default()
+            level_font = ImageFont.load_default()
+            text_font = ImageFont.load_default()
+            small_font = ImageFont.load_default()
     
-    name = member.name[:15] + "..." if len(member.name) > 15 else member.name
-    draw.text((190, 70), name, fill=(255, 255, 255), font=title_font)
+    # 4. 用户名（带 @）
+    name = member.display_name[:15] + "..." if len(member.display_name) > 15 else member.display_name
+    draw.text((190, 70), f"@{name}", fill=(255, 255, 255), font=title_font)
     
+    # 5. 等级徽章（渐变彩色）
     badge_x, badge_y = 190, 120
-    badge_width, badge_height = 100, 40
+    badge_width, badge_height = 120, 45
     for i in range(badge_height):
-        r = 100 + int(100 * i / badge_height)
-        g = 50 + int(50 * i / badge_height)
-        b = 150 + int(100 * i / badge_height)
+        r = 255 - int(155 * i / badge_height)
+        g = 100 + int(155 * i / badge_height)
+        b = 50 + int(50 * i / badge_height)
         draw.line([(badge_x, badge_y + i), (badge_x + badge_width, badge_y + i)], fill=(r, g, b))
-    draw.rectangle([badge_x, badge_y, badge_x + badge_width, badge_y + badge_height], outline=(200, 150, 100), width=2)
-    draw.text((badge_x + badge_width//2, badge_y + badge_height//2 - 5), f"Lv.{level}", fill='white', font=level_font, anchor='mm')
+    draw.rectangle([badge_x, badge_y, badge_x + badge_width, badge_y + badge_height], outline=(255, 215, 0), width=2)
+    draw.text((badge_x + badge_width//2, badge_y + badge_height//2 - 3), f"Lv.{level}", fill='white', font=level_font, anchor='mm')
     
-    draw.text((190, 175), f"Rank #{rank}", fill=(200, 180, 100), font=text_font)
-    draw.text((width - 20, height - 25), guild_name, fill=(100, 100, 130), font=small_font, anchor='rb')
+    # 6. 排名
+    draw.text((190, 180), f"🏆 排名 #{rank}", fill=(255, 215, 0), font=text_font)
     
-    bar_x, bar_y = 190, 230
-    bar_width, bar_height = 550, 25
-    draw.rectangle([bar_x, bar_y, bar_x + bar_width, bar_y + bar_height], fill=(30, 30, 50), outline=(80, 80, 120), width=2)
+    # 7. 服务器名称
+    draw.text((width - 20, height - 25), guild_name[:20], fill=(150, 150, 180), font=small_font, anchor='rb')
     
+    # 8. 经验条背景
+    bar_x, bar_y = 190, 235
+    bar_width, bar_height = 550, 30
+    draw.rectangle([bar_x, bar_y, bar_x + bar_width, bar_y + bar_height], fill=(40, 40, 60), outline=(100, 100, 150), width=2)
+    
+    # 9. 渐变进度条
     progress = int((xp / needed_xp) * bar_width) if needed_xp > 0 else 0
     for i in range(bar_height):
-        for j in range(progress):
+        for j in range(min(progress, bar_width)):
             r = 80 + int(100 * j / bar_width)
             g = 100 + int(80 * j / bar_width)
             b = 255 - int(80 * j / bar_width)
             draw.point((bar_x + j, bar_y + i), fill=(r, g, b))
     
-    draw.text((bar_x + bar_width + 15, bar_y + bar_height//2 - 5), f"{xp}/{needed_xp} XP", fill=(180, 180, 220), font=small_font)
-    draw.line([(45, 280), (170, 280)], fill=(150, 100, 200), width=3)
+    # 10. 经验数字
+    exp_text = f"{xp} / {needed_xp} XP"
+    draw.text((bar_x + bar_width + 15, bar_y + bar_height//2 - 5), exp_text, fill=(220, 220, 255), font=small_font)
     
+    # 11. 百分比显示
+    percent = int((xp / needed_xp) * 100) if needed_xp > 0 else 0
+    draw.text((bar_x + bar_width//2, bar_y + bar_height//2 - 5), f"{percent}%", fill=(255, 255, 255, 200), font=small_font, anchor='mm')
+    
+    # 12. 装饰线条
+    draw.line([(45, 290), (170, 290)], fill=(150, 100, 200), width=3)
+    draw.line([(45, 295), (170, 295)], fill=(100, 80, 150), width=1)
+    
+    # 13. 星星装饰
     for i in range(3):
-        draw.text((width - 50 - i * 30, 40), "★", fill=(255, 215, 0), font=small_font)
+        star_x = width - 50 - i * 35
+        star_y = 45
+        draw.text((star_x, star_y), "★", fill=(255, 215, 0), font=small_font)
     
+    # 14. 底部装饰线
+    draw.line([(0, height - 2), (width, height - 2)], fill=(100, 80, 150), width=2)
+    
+    # 保存图片
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
