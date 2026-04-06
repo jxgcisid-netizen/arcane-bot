@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import sqlite3
 from collections import defaultdict
 import re
-from discordlevelingcard import RankCard, Settings
+from Discordlevelingcard import RankCard, Settings
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
