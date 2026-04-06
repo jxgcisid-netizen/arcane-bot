@@ -86,85 +86,53 @@ def admin_only():
 # ==================== 等级卡片 ====================
 
 async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
-    width, height = 900, 320
-    img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    width, height = 700, 160
+    img = Image.new('RGBA', (width, height), (20, 22, 30))
     draw = ImageDraw.Draw(img)
     
-    # 简洁深色圆角背景
-    for y in range(height):
-        r = 25 + int(5 * y / height)
-        g = 30 + int(5 * y / height)
-        b = 45 + int(10 * y / height)
-        draw.line([(0, y), (width, y)], fill=(r, g, b))
-    
-    # 圆角边框效果（四个角画圆弧）
-    corner_radius = 20
-    draw.rectangle([corner_radius, 0, width - corner_radius, height], fill=None, outline=(80, 90, 120), width=2)
-    draw.rectangle([0, corner_radius, width, height - corner_radius], fill=None, outline=(80, 90, 120), width=2)
-    
-    # 下载头像
+    # ========== 头像（左边） ==========
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(member.display_avatar.url) as resp:
                 if resp.status == 200:
                     avatar_data = await resp.read()
                     avatar = Image.open(io.BytesIO(avatar_data)).convert('RGBA')
-                    avatar = avatar.resize((100, 100))
+                    avatar = avatar.resize((70, 70))
                     
-                    mask = Image.new('L', (100, 100), 0)
+                    mask = Image.new('L', (70, 70), 0)
                     mask_draw = ImageDraw.Draw(mask)
-                    mask_draw.ellipse((0, 0, 100, 100), fill=255)
+                    mask_draw.ellipse((0, 0, 70, 70), fill=255)
                     
-                    avatar_circular = Image.new('RGBA', (100, 100))
+                    avatar_circular = Image.new('RGBA', (70, 70))
                     avatar_circular.paste(avatar, (0, 0), avatar)
                     avatar_circular.putalpha(mask)
                     
-                    img.paste(avatar_circular, (50, 110), avatar_circular)
+                    img.paste(avatar_circular, (20, 20), avatar_circular)
     except:
-        draw.ellipse((50, 110, 150, 210), fill=(100, 100, 150))
+        draw.ellipse((20, 20, 90, 90), fill=(80, 85, 100))
     
-    # 字体
+    # ========== 字体 ==========
     try:
-        title_font = ImageFont.truetype("arial.ttf", 32)
-        level_font = ImageFont.truetype("arial.ttf", 26)
-        text_font = ImageFont.truetype("arial.ttf", 20)
-        small_font = ImageFont.truetype("arial.ttf", 16)
+        name_font = ImageFont.truetype("arial.ttf", 24)
+        info_font = ImageFont.truetype("arial.ttf", 18)
     except:
-        title_font = ImageFont.load_default()
-        level_font = ImageFont.load_default()
-        text_font = ImageFont.load_default()
-        small_font = ImageFont.load_default()
+        name_font = ImageFont.load_default()
+        info_font = ImageFont.load_default()
     
-    # 用户名
-    name = member.display_name[:16] + "..." if len(member.display_name) > 16 else member.display_name
-    draw.text((180, 100), name, fill=(255, 255, 255), font=title_font)
+    # ========== 用户名 ==========
+    draw.text((110, 25), f"@{member.display_name}", fill=(255, 255, 255), font=name_font)
     
-    # 等级徽章（简洁）
-    draw.rectangle([180, 145, 280, 185], fill=(88, 101, 242), outline=(114, 137, 218), width=2)
-    draw.text((230, 165), f"Lv.{level}", fill=(255, 255, 255), font=level_font, anchor='mm')
+    # ========== 等级信息 ==========
+    draw.text((110, 55), f"Level: {level}   XP: {xp} / {needed_xp}   Rank: #{rank}", fill=(212, 175, 55), font=info_font)
     
-    # 排名
-    draw.text((180, 200), f"#{rank}", fill=(255, 215, 0), font=text_font)
+    # ========== 进度条 ==========
+    bar_x, bar_y = 110, 90
+    bar_w, bar_h = 540, 14
+    draw.rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], fill=(50, 55, 70))
     
-    # 服务器名
-    draw.text((width - 20, height - 20), guild_name, fill=(120, 130, 170), font=small_font, anchor='rb')
-    
-    # ========== 简洁进度条 ==========
-    bar_x, bar_y = 180, 245
-    bar_width, bar_height = 600, 20
-    
-    # 背景
-    draw.rectangle([bar_x, bar_y, bar_x + bar_width, bar_y + bar_height], fill=(50, 55, 75))
-    
-    # 进度（纯色，简洁）
-    progress = int((xp / needed_xp) * bar_width) if needed_xp > 0 else 0
+    progress = int((xp / needed_xp) * bar_w) if needed_xp > 0 else 0
     if progress > 0:
-        draw.rectangle([bar_x, bar_y, bar_x + progress, bar_y + bar_height], fill=(88, 101, 242))
-    
-    # 进度数字
-    percent = int((xp / needed_xp) * 100) if needed_xp > 0 else 0
-    exp_text = f"{xp}/{needed_xp} XP ({percent}%)"
-    draw.text((bar_x + bar_width//2, bar_y + bar_height + 8), exp_text, fill=(180, 190, 220), font=small_font, anchor='mt')
+        draw.rectangle([bar_x, bar_y, bar_x + progress, bar_y + bar_h], fill=(212, 175, 55))
     
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
