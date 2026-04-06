@@ -9,9 +9,6 @@ from datetime import datetime, timedelta
 import sqlite3
 from collections import defaultdict
 import re
-import io
-from discord import File
-import canvacard
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -171,93 +168,6 @@ def get_rank(guild_id, user_id):
             return i
     return 0
 
-# ========== 等级卡片图片生成 ==========
-async def create_rank_card_html(username, level, xp, next_xp, rank, avatar_url, server_name):
-    progress = int(xp / next_xp * 100) if next_xp > 0 else 0
-    
-    template_path = "templates/rank_card.html"
-    with open(template_path, "r", encoding="utf-8") as f:
-        template = Template(f.read())
-    
-    html = template.render(
-        username=username,
-        level=level,
-        xp=xp,
-        next_xp=next_xp,
-        progress=progress,
-        rank=rank,
-        avatar_url=avatar_url,
-        server_name=server_name
-    )
-    
-    # 保存临时 HTML 文件
-    html_path = "/tmp/rank_card.html"
-    png_path = "/tmp/rank_card.png"
-    
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html)
-    
-    # 转换为图片
-    config = imgkit.config(wkhtmltoimage='/usr/bin/wkhtmltoimage')
-    imgkit.from_file(html_path, png_path, config=config)
-    
-    with open(png_path, "rb") as f:
-        return f.read()
-
-# ========== 排行榜图片生成 ==========
-async def create_leaderboard_image(guild_name, top_users):
-    height = 150 + len(top_users) * 55
-    img = Image.new('RGB', (800, height), color='#2C2F33')
-    draw = ImageDraw.Draw(img)
-    
-    try:
-        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
-        header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
-    except:
-        title_font = ImageFont.load_default()
-        header_font = ImageFont.load_default()
-        font = ImageFont.load_default()
-    
-    draw.text((400, 30), f"{guild_name} 等级排行榜", fill='white', font=title_font, anchor='mt')
-    draw.text((60, 80), "排名", fill='#a78bfa', font=header_font)
-    draw.text((160, 80), "玩家", fill='#a78bfa', font=header_font)
-    draw.text((500, 80), "等级", fill='#a78bfa', font=header_font)
-    draw.text((620, 80), "经验", fill='#a78bfa', font=header_font)
-    draw.line([(40, 110), (760, 110)], fill='#5865F2', width=2)
-    
-    y = 130
-    for i, (user_id, level, xp) in enumerate(top_users, 1):
-        try:
-            user = await bot.fetch_user(int(user_id))
-            name = user.name[:20]
-        except:
-            name = f"用户{user_id[:8]}"
-        
-        if i == 1:
-            rank_color = "#FFD700"
-            medal = "🥇"
-        elif i == 2:
-            rank_color = "#C0C0C0"
-            medal = "🥈"
-        elif i == 3:
-            rank_color = "#CD7F32"
-            medal = "🥉"
-        else:
-            rank_color = "white"
-            medal = f"{i}"
-        
-        draw.text((60, y), medal, fill=rank_color, font=font)
-        draw.text((160, y), name, fill="white", font=font)
-        draw.text((500, y), str(level), fill="white", font=font)
-        draw.text((620, y), str(xp), fill="white", font=font)
-        y += 50
-    
-    img_bytes = io.BytesIO()
-    img.save(img_bytes, format='PNG')
-    img_bytes.seek(0)
-    return img_bytes
-
 # ========== 等级系统 ==========
 @bot.event
 async def on_message(message):
@@ -366,26 +276,20 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
-    # 创建等级卡片
-    rank_card = canvacard.Rank()
-    rank_card.setAvatar(member.display_avatar.url)
-    rank_card.setUsername(member.name)
-    rank_card.setLevel(user_data["level"])
-    rank_card.setCurrentXP(user_data["xp"])
-    rank_card.setRequiredXP(needed_xp)
-    rank_card.setRank(rank_pos)
-    rank_card.setStatus("online")
+    # 使用免费 API 生成等级卡片图片
+    url = f"https://api.voids.top/v1/rank?avatar={member.display_avatar.url}&username={member.name}&level={user_data['level']}&rank={rank_pos}&currentXp={user_data['xp']}&nextXp={needed_xp}"
     
-    # 生成图片
-    image_bytes = await rank_card.build()
-    file = File(image_bytes, filename="level.png")
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            image_data = await resp.read()
+    
+    file = discord.File(image_data, filename="level.png")
     await interaction.response.send_message(file=file)
-    
+
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
-    # 直接调用 level 命令
     await slash_level(interaction, member)
-    
+
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
     c.execute("SELECT user_id, level, xp FROM users WHERE guild_id=? ORDER BY level DESC, xp DESC LIMIT 10", (str(interaction.guild.id),))
@@ -395,20 +299,15 @@ async def slash_leaderboard(interaction: discord.Interaction):
         await interaction.response.send_message("📭 暂无数据")
         return
     
-    try:
-        img_bytes = await create_leaderboard_image(interaction.guild.name, top_users)
-        file = discord.File(img_bytes, filename="leaderboard.png")
-        await interaction.response.send_message(file=file)
-    except Exception as e:
-        embed = discord.Embed(title="🏆 等级排行榜", color=discord.Color.gold())
-        for i, (user_id, level, xp) in enumerate(top_users, 1):
-            try:
-                user = await bot.fetch_user(int(user_id))
-                name = user.name
-            except:
-                name = f"用户{user_id[:8]}"
-            embed.add_field(name=f"{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
-        await interaction.response.send_message(embed=embed)
+    embed = discord.Embed(title="🏆 等级排行榜", color=discord.Color.gold())
+    for i, (user_id, level, xp) in enumerate(top_users, 1):
+        try:
+            user = await bot.fetch_user(int(user_id))
+            name = user.name
+        except:
+            name = f"用户{user_id[:8]}"
+        embed.add_field(name=f"{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
+    await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="userinfo", description="查看用户信息")
 async def slash_userinfo(interaction: discord.Interaction, member: discord.Member = None):
