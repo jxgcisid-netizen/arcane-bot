@@ -366,27 +366,21 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
-    try:
-        img_bytes = await create_rank_card_html(
-            username=member.name,
-            level=user_data["level"],
-            xp=user_data["xp"],
-            next_xp=needed_xp,
-            rank=rank_pos,
-            avatar_url=member.display_avatar.url,
-            server_name=interaction.guild.name
-        )
-        file = discord.File(img_bytes, filename="level.png")
-        await interaction.response.send_message(file=file)
-    except Exception as e:
-        # 降级到文字版
-        embed = discord.Embed(
-            title=f"{member.name} 的等级",
-            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}",
-            color=discord.Color.blue()
-        )
-        await interaction.response.send_message(embed=embed)
-
+    # 创建等级卡片
+    rank_card = canvacard.Rank()
+    rank_card.setAvatar(member.display_avatar.url)
+    rank_card.setUsername(member.name)
+    rank_card.setLevel(user_data["level"])
+    rank_card.setCurrentXP(user_data["xp"])
+    rank_card.setRequiredXP(needed_xp)
+    rank_card.setRank(rank_pos)
+    rank_card.setStatus("online")
+    
+    # 生成图片
+    image_bytes = await rank_card.build()
+    file = File(image_bytes, filename="level.png")
+    await interaction.response.send_message(file=file)
+    
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
     # 直接调用 level 命令
