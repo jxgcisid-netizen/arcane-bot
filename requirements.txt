@@ -1,5 +1,4 @@
 discord.py
 aiohttp
 pillow
-jinja2
-imgkit
+canvacard
