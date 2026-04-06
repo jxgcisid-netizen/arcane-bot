@@ -365,46 +365,56 @@ async def on_voice_state_update(member, before, after):
 async def slash_level(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
     user_data = get_user_data(interaction.guild.id, member.id)
-    settings = get_guild_settings(interaction.guild.id)
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
     try:
-        img_bytes = await create_level_card(
-            member, user_data["level"], user_data["xp"], needed_xp, rank_pos, interaction.guild.name, settings
+        img_bytes = await create_rank_card_html(
+            username=member.name,
+            level=user_data["level"],
+            xp=user_data["xp"],
+            next_xp=needed_xp,
+            rank=rank_pos,
+            avatar_url=member.display_avatar.url,
+            server_name=interaction.guild.name
         )
         file = discord.File(img_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
-    except Exception as e:
+        except Exception as e:
+             降级到文字版
         embed = discord.Embed(
             title=f"{member.name} 的等级",
-            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}\n语音经验: {user_data['voice_xp']}",
+            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}",
             color=discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed)
-
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
-async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
+async def slash_level(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
     user_data = get_user_data(interaction.guild.id, member.id)
-    settings = get_guild_settings(interaction.guild.id)
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
     try:
-        img_bytes = await create_level_card(
-            member, user_data["level"], user_data["xp"], needed_xp, rank_pos, interaction.guild.name, settings
+        img_bytes = await create_rank_card_html(
+            username=member.name,
+            level=user_data["level"],
+            xp=user_data["xp"],
+            next_xp=needed_xp,
+            rank=rank_pos,
+            avatar_url=member.display_avatar.url,
+            server_name=interaction.guild.name
         )
         file = discord.File(img_bytes, filename="level.png")
         await interaction.response.send_message(file=file)
-    except Exception as e:
+        except Exception as e:
+             降级到文字版
         embed = discord.Embed(
             title=f"{member.name} 的等级",
-            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}\n语音经验: {user_data['voice_xp']}",
+            description=f"等级: **{user_data['level']}**\n经验: {user_data['xp']}/{needed_xp} XP\n排名: #{rank_pos}",
             color=discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed)
-
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
     c.execute("SELECT user_id, level, xp FROM users WHERE guild_id=? ORDER BY level DESC, xp DESC LIMIT 10", (str(interaction.guild.id),))
