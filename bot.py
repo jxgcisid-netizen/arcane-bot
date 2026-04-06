@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import sqlite3
 from collections import defaultdict
 import re
+from discordlevelingcard import RankCard, Settings
 
 # ========== 配置 ==========
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -276,30 +277,38 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     rank_pos = get_rank(interaction.guild.id, member.id)
     needed_xp = user_data["level"] * 50
     
-    url = f"https://api.voids.top/v1/rank?avatar={member.display_avatar.url}&username={member.name}&level={user_data['level']}&rank={rank_pos}&currentXp={user_data['xp']}&nextXp={needed_xp}"
+    # 获取服务器设置
+    settings = get_guild_settings(interaction.guild.id)
     
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            image_data = await resp.read()
+    # 配置卡片样式
+    card_settings = Settings(
+        background=settings["card_background"] or "https://i.imgur.com/5O7xmVe.png",
+        bar_color=settings["card_color"],
+        text_color="white",
+        background_color="#2C2F33"
+    )
     
-    file = discord.File(image_data, filename="level.png")
+    # 创建等级卡片
+    rank_card = RankCard(
+        settings=card_settings,
+        avatar=member.display_avatar.url,
+        level=user_data["level"],
+        current_exp=user_data["xp"],
+        max_exp=needed_xp,
+        username=member.name,
+        rank=rank_pos,
+        server_name=interaction.guild.name
+    )
+    
+    # 生成图片（使用 card1 风格，最接近 Arcane）
+    image_bytes = await rank_card.card1()
+    
+    file = discord.File(image_bytes, filename="level.png")
     await interaction.response.send_message(file=file)
 
 @bot.tree.command(name="rank", description="查看自己的等级卡片")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    user_data = get_user_data(interaction.guild.id, member.id)
-    rank_pos = get_rank(interaction.guild.id, member.id)
-    needed_xp = user_data["level"] * 50
-    
-    url = f"https://api.voids.top/v1/rank?avatar={member.display_avatar.url}&username={member.name}&level={user_data['level']}&rank={rank_pos}&currentXp={user_data['xp']}&nextXp={needed_xp}"
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            image_data = await resp.read()
-    
-    file = discord.File(image_data, filename="level.png")
-    await interaction.response.send_message(file=file)
+    await slash_level(interaction, member)
 
 @bot.tree.command(name="leaderboard", description="查看等级排行榜")
 async def slash_leaderboard(interaction: discord.Interaction):
@@ -317,7 +326,17 @@ async def slash_leaderboard(interaction: discord.Interaction):
             name = user.name
         except:
             name = f"用户{user_id[:8]}"
-        embed.add_field(name=f"{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
+        
+        if i == 1:
+            medal = "🥇 "
+        elif i == 2:
+            medal = "🥈 "
+        elif i == 3:
+            medal = "🥉 "
+        else:
+            medal = ""
+        
+        embed.add_field(name=f"{medal}{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="userinfo", description="查看用户信息")
@@ -400,6 +419,22 @@ async def set_xp_rate(interaction: discord.Interaction, rate: float):
     c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, xp_rate) VALUES (?, ?)", (str(interaction.guild.id), rate))
     conn.commit()
     await interaction.response.send_message(f"✅ 经验倍率已设置为 {rate}x", ephemeral=True)
+
+@bot.tree.command(name="set_card_bg", description="设置等级卡片背景图")
+@admin_only()
+async def set_card_bg(interaction: discord.Interaction, url: str):
+    c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, card_background) VALUES (?, ?)", (str(interaction.guild.id), url))
+    conn.commit()
+    await interaction.response.send_message(f"✅ 等级卡片背景已更新", ephemeral=True)
+
+@bot.tree.command(name="set_card_color", description="设置等级卡片进度条颜色")
+@admin_only()
+async def set_card_color(interaction: discord.Interaction, color: str):
+    if not color.startswith("#"):
+        color = "#" + color
+    c.execute("INSERT OR REPLACE INTO guild_settings (guild_id, card_color) VALUES (?, ?)", (str(interaction.guild.id), color))
+    conn.commit()
+    await interaction.response.send_message(f"✅ 等级卡片颜色已设置为 {color}", ephemeral=True)
 
 # ========== 自定义命令 ==========
 @bot.tree.command(name="add_cmd", description="添加自定义命令")
