@@ -103,10 +103,10 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
         (684, 200),
     ], fill=teal)
 
-    # ========== 头像（Y位置提高） ==========
+    # ========== 头像 ==========
     avatar_size = 115
     avatar_x    = 18
-    avatar_y    = 15  # 原来是从中间垂直居中，现在改成从顶部往下15px
+    avatar_y    = 15
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -134,19 +134,30 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
 
     # ========== 字体 ==========
     name_font = ImageFont.truetype(FONT_BOLD,    38)
-    info_font = ImageFont.truetype(FONT_REGULAR, 32)
+    info_font = ImageFont.truetype(FONT_REGULAR, 30)
 
     # ========== 用户名 ==========
     nickname = member.display_name[:18] + "..." if len(member.display_name) > 18 else member.display_name
     draw.text((152, 30), f"@{nickname}", fill=(255, 255, 255), font=name_font)
-
-    # ========== 青蓝色分隔线 ==========
-    draw.line([(150, 82), (699, 82)], fill=teal, width=2)
+    
+    # ========== 测量用户名宽度，让线条匹配 ==========
+    try:
+        bbox = draw.textbbox((152, 30), f"@{nickname}", font=name_font)
+        name_width = bbox[2] - bbox[0]
+    except:
+        name_width = len(f"@{nickname}") * 22
+    
+    # 线条从用户名左边开始，到用户名右边结束
+    line_start_x = 152
+    line_end_x = 152 + name_width
+    
+    # ========== 青蓝色分隔线（匹配用户名长度） ==========
+    draw.line([(line_start_x, 82), (line_end_x, 82)], fill=teal, width=2)
 
     # ========== info 三列 ==========
     draw.text((152, 95), f"Level: {level}",          fill=(210, 215, 218), font=info_font)
-    draw.text((330, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=info_font)
-    draw.text((510, 95), f"Rank: {rank}",            fill=(210, 215, 218), font=info_font)
+    draw.text((310, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=info_font)
+    draw.text((490, 95), f"Rank: {rank}",            fill=(210, 215, 218), font=info_font)
 
     # ========== 进度条 ==========
     bar_x, bar_y, bar_w, bar_h, r = 11, 150, 628, 34, 17
@@ -163,7 +174,7 @@ async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
     return img_bytes
-
+    
 # ==================== 等级系统 ====================
 
 @bot.event
