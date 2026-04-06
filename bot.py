@@ -318,25 +318,73 @@ async def slash_leaderboard(interaction: discord.Interaction):
         await interaction.response.send_message("📭 暂无数据")
         return
     
-    embed = discord.Embed(title="🏆 等级排行榜", color=discord.Color.gold())
-    for i, (user_id, level, xp) in enumerate(top_users, 1):
+    # 获取所有用户名称
+    users_data = []
+    for user_id, level, xp in top_users:
         try:
             user = await bot.fetch_user(int(user_id))
             name = user.name
         except:
             name = f"用户{user_id[:8]}"
-        
+        users_data.append((name, level, xp))
+    
+    # 创建图片
+    height = 150 + len(users_data) * 55
+    img = Image.new('RGB', (800, height), color='#2C2F33')
+    draw = ImageDraw.Draw(img)
+    
+    # 加载字体
+    try:
+        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
+        header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+    except:
+        title_font = ImageFont.load_default()
+        header_font = ImageFont.load_default()
+        font = ImageFont.load_default()
+    
+    # 画标题
+    draw.text((400, 30), f"{interaction.guild.name} 等级排行榜", fill='white', font=title_font, anchor='mt')
+    
+    # 画表头
+    draw.text((60, 80), "排名", fill='#a78bfa', font=header_font)
+    draw.text((160, 80), "玩家", fill='#a78bfa', font=header_font)
+    draw.text((500, 80), "等级", fill='#a78bfa', font=header_font)
+    draw.text((620, 80), "经验", fill='#a78bfa', font=header_font)
+    
+    # 画分隔线
+    draw.line([(40, 110), (760, 110)], fill='#5865F2', width=2)
+    
+    # 画数据
+    y = 130
+    for i, (name, level, xp) in enumerate(users_data, 1):
+        # 前三名特殊颜色
         if i == 1:
-            medal = "🥇 "
+            rank_color = "#FFD700"
+            medal = "🥇"
         elif i == 2:
-            medal = "🥈 "
+            rank_color = "#C0C0C0"
+            medal = "🥈"
         elif i == 3:
-            medal = "🥉 "
+            rank_color = "#CD7F32"
+            medal = "🥉"
         else:
-            medal = ""
+            rank_color = "white"
+            medal = f"{i}"
         
-        embed.add_field(name=f"{medal}{i}. {name}", value=f"Lv.{level} ({xp} XP)", inline=False)
-    await interaction.response.send_message(embed=embed)
+        draw.text((60, y), medal, fill=rank_color, font=font)
+        draw.text((160, y), name[:20], fill="white", font=font)
+        draw.text((500, y), str(level), fill="white", font=font)
+        draw.text((620, y), str(xp), fill="white", font=font)
+        y += 50
+    
+    # 保存图片
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    
+    file = discord.File(img_bytes, filename="leaderboard.png")
+    await interaction.response.send_message(file=file)
 
 @bot.tree.command(name="userinfo", description="查看用户信息")
 async def slash_userinfo(interaction: discord.Interaction, member: discord.Member = None):
