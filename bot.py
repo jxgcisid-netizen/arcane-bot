@@ -279,7 +279,6 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
     
     settings = get_guild_settings(interaction.guild.id)
     
-    # 使用背景图（如果有的话），否则用纯色
     bg_url = settings["card_background"] if settings["card_background"] else None
     
     card_settings = Settings(
@@ -296,8 +295,7 @@ async def slash_level(interaction: discord.Interaction, member: discord.Member =
         current_exp=user_data["xp"],
         max_exp=needed_xp,
         username=member.name,
-        rank=rank_pos,
-        server_name=interaction.guild.name
+        rank=rank_pos
     )
     
     image_bytes = await rank_card.card1()
@@ -329,8 +327,7 @@ async def slash_rank(interaction: discord.Interaction, member: discord.Member = 
         current_exp=user_data["xp"],
         max_exp=needed_xp,
         username=member.name,
-        rank=rank_pos,
-        server_name=interaction.guild.name
+        rank=rank_pos
     )
     
     image_bytes = await rank_card.card1()
@@ -409,7 +406,7 @@ async def slash_invite(interaction: discord.Interaction):
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(
         title="✨ Arcane Bot 帮助 ✨",
-        description="**等级系统**\n`/level` 或 `/rank` - 查看等级卡片\n`/leaderboard` - 排行榜\n`/add_level_role` - 设置等级奖励角色\n`/set_xp_rate` - 设置经验倍率\n\n"
+        description="**等级系统**\n`/level` 或 `/rank` - 查看等级卡片\n`/leaderboard` - 排行榜\n`/add_level_role` - 设置等级奖励角色\n`/set_xp_rate` - 设置经验倍率\n`/set_card_bg` - 设置卡片背景\n`/set_card_color` - 设置卡片颜色\n\n"
                     "**自定义命令**\n`/add_cmd` - 添加自定义命令\n`/del_cmd` - 删除自定义命令\n`/list_cmds` - 列出自定义命令\n\n"
                     "**反应角色**\n`/add_reaction_role` - 添加反应角色\n\n"
                     "**YouTube 通知**\n`/add_youtube` - 添加 YouTube 频道通知\n\n"
