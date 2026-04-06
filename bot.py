@@ -85,8 +85,8 @@ def admin_only():
 
 # ==================== 等级卡片 ====================
 
-FONT_BOLD    = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
-FONT_REGULAR = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+FONT_BOLD    = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 async def create_rank_card(member, level, xp, needed_xp, rank, guild_name):
     width, height = 800, 200
@@ -261,31 +261,6 @@ async def on_voice_state_update(member, before, after):
 
 # ==================== 斜杠命令 ====================
 
-@bot.command()
-async def findfonts(ctx):
-    import subprocess, os
-    
-    # 检查常见路径是否存在
-    paths = [
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-        "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
-    ]
-    
-    msg = "**字体检测:**\n"
-    for p in paths:
-        exists = "✅ 存在" if os.path.exists(p) else "❌ 不存在"
-        msg += f"{exists} `{p}`\n"
-    
-    # 再搜索所有ttf
-    result = subprocess.run('find /usr -name "*.ttf" 2>/dev/null', 
-                           shell=True, capture_output=True, text=True, timeout=10)
-    found = result.stdout.strip().split('\n')[:20]
-    msg += "\n**找到的字体:**\n```\n" + '\n'.join(found) + "\n```"
-    
-    await ctx.send(msg)
-    
 @bot.event
 async def on_ready():
     await bot.tree.sync()
