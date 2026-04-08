@@ -1,6 +1,6 @@
 import io
 from PIL import Image, ImageDraw
-from config import TEAL, RANK_COLORS, RANK_BG, RANK_BAR, get_font, get_optimal_font
+from config import TEAL, RANK_COLORS, RANK_BG, RANK_BAR, get_font
 from utils.image_utils import fetch_avatar
 
 
@@ -25,18 +25,18 @@ async def create_leaderboard_card(guild, top_users, mode="xp"):
     draw.rectangle([0, 0, img_w, header], fill=(32, 36, 45))
     draw.rectangle([0, header - 3, img_w, header], fill=teal)
 
-    # 标题（自适应）
+    # 标题
     title = "🏆  打字排行榜  —  XP" if mode == "xp" else "🎙️  语音排行榜  —  Voice XP"
-    title_font, title_size = get_optimal_font(title, img_w - 100, initial_size=28, bold=True)
-    tw = title_font.getbbox(title)[2] - title_font.getbbox(title)[0]
-    draw.text(((img_w - tw) // 2, 20), title, fill=(220, 228, 240), font=title_font)
+    font_title = get_font(28, True)
+    tw = font_title.getbbox(title)[2] - font_title.getbbox(title)[0]
+    draw.text(((img_w - tw) // 2, 20), title, fill=(220, 228, 240), font=font_title)
 
-    # 表头字体
-    header_font = get_font(18, bold=True)
-    draw.text((50, header - 20), "排名", fill=(150, 155, 160), font=header_font)
-    draw.text((130, header - 20), "用户", fill=(150, 155, 160), font=header_font)
-    draw.text((img_w - 180, header - 20), "等级", fill=(150, 155, 160), font=header_font)
-    draw.text((img_w - 100, header - 20), "经验", fill=(150, 155, 160), font=header_font)
+    # 表头
+    font_header = get_font(18, True)
+    draw.text((50, header - 20), "排名", fill=(150, 155, 160), font=font_header)
+    draw.text((130, header - 20), "用户", fill=(150, 155, 160), font=font_header)
+    draw.text((img_w - 180, header - 20), "等级", fill=(150, 155, 160), font=font_header)
+    draw.text((img_w - 100, header - 20), "经验", fill=(150, 155, 160), font=font_header)
 
     for i, user in enumerate(top_users):
         rank = i + 1
@@ -49,10 +49,8 @@ async def create_leaderboard_card(guild, top_users, mode="xp"):
         row_bg = RANK_BG.get(rank, (30, 34, 42))
         bar_col = RANK_BAR.get(rank, teal)
 
-        # 行背景
         draw.rectangle([0, y_top, img_w, y_top + row_h], fill=row_bg)
 
-        # 前3名左侧彩色竖条
         if rank <= 3:
             draw.rectangle([0, y_top, 5, y_top + row_h], fill=rank_col)
 
@@ -76,51 +74,46 @@ async def create_leaderboard_card(guild, top_users, mode="xp"):
                 av_circle.putalpha(mask)
                 img.paste(av_circle, (12, y_top + 12), av_circle)
             else:
-                # 无头像时显示首字母
-                letter_font = get_font(24, bold=True)
+                font_letter = get_font(24, True)
                 letter = member.display_name[0].upper()
-                lb = letter_font.getbbox(letter)
+                lb = font_letter.getbbox(letter)
                 lw2, lh = lb[2] - lb[0], lb[3] - lb[1]
                 draw.text((8 + (av_w - 8) // 2 - lw2 // 2, y_top + row_h // 2 - lh // 2),
-                          letter, fill=rank_col if rank <= 3 else (150, 160, 175), font=letter_font)
+                          letter, fill=rank_col if rank <= 3 else (150, 160, 175), font=font_letter)
 
         text_x = 8 + av_w + 4
         text_y = y_top + 18
 
-        # 排名数字
-        rank_font = get_font(26, bold=True)
+        # 排名
+        font_rank = get_font(26, True)
         rank_str = f"#{rank}"
-        draw.text((text_x, text_y), rank_str, fill=rank_col, font=rank_font)
-        rw = rank_font.getbbox(rank_str)[2] - rank_font.getbbox(rank_str)[0]
+        draw.text((text_x, text_y), rank_str, fill=rank_col, font=font_rank)
+        rw = font_rank.getbbox(rank_str)[2] - font_rank.getbbox(rank_str)[0]
 
         # 分隔点
-        dot_font = get_font(18, bold=False)
+        font_dot = get_font(18, False)
         dot_x = text_x + rw + 10
-        draw.text((dot_x, text_y + 3), "•", fill=(75, 85, 105), font=dot_font)
+        draw.text((dot_x, text_y + 3), "•", fill=(75, 85, 105), font=font_dot)
 
-        # 用户名（自适应）
+        # 用户名
         name = user.get("name") or (member.display_name if member else "???")
         name_str = f"@{name[:16]}"
-        name_font, name_size = get_optimal_font(name_str, 200, initial_size=24, bold=True)
+        font_name = get_font(24, True)
         name_x = dot_x + 16
-        draw.text((name_x, text_y + 2), name_str, fill=(220, 228, 240), font=name_font)
-        
-        try:
-            nw2 = name_font.getbbox(name_str)[2] - name_font.getbbox(name_str)[0]
-        except:
-            nw2 = len(name_str) * name_size // 2
+        draw.text((name_x, text_y + 2), name_str, fill=(220, 228, 240), font=font_name)
+        nw2 = font_name.getbbox(name_str)[2] - font_name.getbbox(name_str)[0]
 
         # 等级
-        lvl_font = get_font(22, bold=True)
+        font_lvl = get_font(22, True)
         lvl_x = name_x + nw2 + 10
-        draw.text((lvl_x, text_y + 3), "•", fill=(75, 85, 105), font=dot_font)
-        draw.text((lvl_x + 16, text_y + 3), f"LV.{level}", fill=rank_col if rank <= 3 else (160, 175, 195), font=lvl_font)
+        draw.text((lvl_x, text_y + 3), "•", fill=(75, 85, 105), font=font_dot)
+        draw.text((lvl_x + 16, text_y + 3), f"LV.{level}", fill=rank_col if rank <= 3 else (160, 175, 195), font=font_lvl)
 
         # 经验数值
-        xp_font = get_font(18, bold=False)
+        font_xp = get_font(18, False)
         xp_str = f"{xp_val:,} XP" if mode == "xp" else f"{xp_val:,} VP"
-        xw = xp_font.getbbox(xp_str)[2] - xp_font.getbbox(xp_str)[0]
-        draw.text((img_w - xw - 16, text_y + 5), xp_str, fill=(95, 110, 135), font=xp_font)
+        xw = font_xp.getbbox(xp_str)[2] - font_xp.getbbox(xp_str)[0]
+        draw.text((img_w - xw - 16, text_y + 5), xp_str, fill=(95, 110, 135), font=font_xp)
 
         # 进度条
         bar_x = text_x
@@ -131,12 +124,10 @@ async def create_leaderboard_card(guild, top_users, mode="xp"):
             prog = max(int((user["xp"] / needed) * bar_w), 8)
             draw.rounded_rectangle([bar_x, bar_y2, bar_x + prog, bar_y2 + 6], radius=3, fill=bar_col)
 
-        # 行分隔线
         if rank < len(top_users):
             draw.line([(av_w + 16, y_top + row_h - 1), (img_w - 16, y_top + row_h - 1)],
                       fill=(38, 43, 54), width=1)
 
-    # 底部青蓝条
     draw.rectangle([0, img_h - 4, img_w, img_h], fill=teal)
 
     buf = io.BytesIO()
