@@ -2,7 +2,7 @@ import io
 import math
 import random
 from PIL import Image, ImageDraw
-from config import TEAL, TEAL_DIM, get_font, get_optimal_font
+from config import TEAL, TEAL_DIM, get_font
 from utils.image_utils import fetch_avatar, make_circle_avatar
 
 
@@ -69,37 +69,27 @@ async def create_welcome_card(member, member_count):
         img.paste(circle, (av_cx - av_r, av_cy - av_r), circle)
 
     # 欢迎标题
+    font_label = get_font(22, True)
     label = "✦  WELCOME TO THE SERVER  ✦"
-    label_font, label_size = get_optimal_font(label, width - 100, initial_size=20, bold=True)
-    try:
-        lbw = label_font.getbbox(label)[2] - label_font.getbbox(label)[0]
-    except:
-        lbw = len(label) * label_size // 2
-    draw.text(((width - lbw) // 2, 295), label, fill=teal, font=label_font)
+    lbw = font_label.getbbox(label)[2] - font_label.getbbox(label)[0]
+    draw.text(((width - lbw) // 2, 295), label, fill=teal, font=font_label)
 
     # 分隔线
     draw.line([(80, 310), (width // 2 - lbw // 2 - 15, 310)], fill=teal_dim, width=1)
     draw.line([(width // 2 + lbw // 2 + 15, 310), (width - 80, 310)], fill=teal_dim, width=1)
 
-    # 欢迎语（自适应）
+    # 欢迎语
+    font_name = get_font(52, True)
     name_text = f"Welcome, {member.display_name}!"
-    name_font, name_size = get_optimal_font(name_text, width - 100, initial_size=48, bold=True)
-    try:
-        nw = name_font.getbbox(name_text)[2] - name_font.getbbox(name_text)[0]
-    except:
-        nw = len(name_text) * name_size // 2
-    
-    draw.text(((width - nw) // 2 + 2, 325), name_text, fill=(20, 60, 60), font=name_font)
-    draw.text(((width - nw) // 2, 323), name_text, fill=(255, 255, 255), font=name_font)
+    nw = font_name.getbbox(name_text)[2] - font_name.getbbox(name_text)[0]
+    draw.text(((width - nw) // 2 + 2, 325), name_text, fill=(20, 60, 60), font=font_name)
+    draw.text(((width - nw) // 2, 323), name_text, fill=(255, 255, 255), font=font_name)
 
     # 成员数量
-    member_font = get_font(26, bold=True)
+    font_member = get_font(28, True)
     mt = f"Member #{member_count}"
-    try:
-        mw = member_font.getbbox(mt)[2] - member_font.getbbox(mt)[0]
-    except:
-        mw = len(mt) * 13
-    draw.text(((width - mw) // 2, 385), mt, fill=(160, 175, 190), font=member_font)
+    mw = font_member.getbbox(mt)[2] - font_member.getbbox(mt)[0]
+    draw.text(((width - mw) // 2, 385), mt, fill=(160, 175, 190), font=font_member)
 
     # 底部装饰点
     for i, dx in enumerate([-30, -15, 0, 15, 30]):
