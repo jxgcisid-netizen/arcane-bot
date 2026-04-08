@@ -23,7 +23,6 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 system = platform.system()
 
-# 候选字体路径（按优先级排序）
 FONT_CANDIDATES = []
 
 if system == "Windows":
@@ -32,34 +31,35 @@ if system == "Windows":
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/consolab.ttf",
         "C:/Windows/Fonts/consola.ttf",
-        "C:/Windows/Fonts/msyhbd.ttc",  # 微软雅黑粗体
-        "C:/Windows/Fonts/msyh.ttc",    # 微软雅黑
     ]
-elif system == "Darwin":  # macOS
+elif system == "Darwin":
     FONT_CANDIDATES = [
         "/System/Library/Fonts/Helvetica.ttc",
-        "/System/Library/Fonts/SFNS.ttf",
-        "/System/Library/Fonts/SFNSDisplay.ttf",
     ]
-else:  # Linux
+else:
     FONT_CANDIDATES = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
     ]
 
 def find_font(bold=True):
-    """自动查找可用的粗体或常规字体"""
     for path in FONT_CANDIDATES:
         if os.path.exists(path):
-            logger.info(f"找到字体: {path}")
+            if bold and ("Bold" in path or "bd" in path):
+                logger.info(f"找到粗体字体: {path}")
+                return path
+            elif not bold and ("Sans.ttf" in path or "arial.ttf" in path or "NotoSansCJK" in path):
+                logger.info(f"找到常规字体: {path}")
+                return path
+    # 如果没找到粗体，返回第一个存在的
+    for path in FONT_CANDIDATES:
+        if os.path.exists(path):
+            logger.info(f"找到备用字体: {path}")
             return path
-    logger.warning("未找到任何字体，将使用默认字体")
+    logger.warning("未找到任何字体")
     return None
 
-# 检测并设置字体路径
 FONT_BOLD = find_font(bold=True)
 FONT_REGULAR = find_font(bold=False)
 
@@ -75,21 +75,9 @@ GOLD = (255, 215, 0)
 SILVER = (192, 192, 192)
 BRONZE = (205, 127, 50)
 
-RANK_COLORS = {
-    1: GOLD,
-    2: SILVER,
-    3: BRONZE,
-}
-RANK_BG = {
-    1: (55, 48, 10),
-    2: (42, 47, 58),
-    3: (52, 32, 12),
-}
-RANK_BAR = {
-    1: (255, 200, 0),
-    2: (180, 190, 210),
-    3: (200, 110, 50),
-}
+RANK_COLORS = {1: GOLD, 2: SILVER, 3: BRONZE}
+RANK_BG = {1: (55, 48, 10), 2: (42, 47, 58), 3: (52, 32, 12)}
+RANK_BAR = {1: (255, 200, 0), 2: (180, 190, 210), 3: (200, 110, 50)}
 
 # ==================== 字体工具函数 ====================
 
@@ -98,9 +86,21 @@ _font_cache = {}
 def get_font(size=36, bold=True):
     """
     获取指定大小的字体对象
-    - size: 字体大小
-    - bold: True 用粗体，False 用常规体
+    支持两种调用方式：
+    - get_font(36, True)      # 标准方式
+    - get_font("bold", 36)    # 兼容旧代码
     """
+    # 兼容旧调用方式
+    if isinstance(size, str):
+        # 第一个参数是字符串（如 "bold"），第二个是大小
+        font_type = size
+        size = bold if isinstance(bold, int) else 36
+        bold = (font_type == "bold")
+    
+    # 确保 size 是整数
+    if not isinstance(size, int):
+        size = 36
+    
     cache_key = f"{bold}_{size}"
     
     if cache_key in _font_cache:
@@ -121,10 +121,7 @@ def get_font(size=36, bold=True):
 
 
 def get_optimal_font(text, max_width, max_height=None, initial_size=40, bold=True):
-    """
-    自动计算最佳字体大小，使文字不超出最大宽度
-    返回 (字体对象, 实际字号)
-    """
+    """自动计算最佳字体大小"""
     size = initial_size
     
     while size > 16:
