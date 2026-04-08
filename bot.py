@@ -220,9 +220,10 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
     # 右侧斜切装饰块
     draw.polygon([(532, 0), (800, 0), (800, 200), (684, 200)], fill=teal)
     
-    # 头像
+    # 头像（往上抬：从原来的垂直居中改为 y=15）
     av_size = 115
-    av_x, av_y = 18, (height - av_size) // 2
+    av_x = 18
+    av_y = 15  # 原来是 (height - av_size) // 2 ≈ 42，现在改到 15
     av_img = await fetch_avatar(member)
     if av_img:
         circle = make_circle_avatar(av_img, av_size)
@@ -230,27 +231,28 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
     else:
         draw.ellipse((av_x, av_y, av_x+av_size, av_y+av_size), fill=(80, 85, 100))
     
-    # 字体（带fallback）
+    # 字体（加大字号）
     try:
-        font_name = ImageFont.truetype(FONT_BOLD, 38)
-        font_info = ImageFont.truetype(FONT_REGULAR, 22)
-        font_rank = ImageFont.truetype(FONT_BOLD, 28)
+        font_name = ImageFont.truetype(FONT_BOLD, 38)      # 用户名不变
+        font_level = ImageFont.truetype(FONT_BOLD, 32)     # Level 字号加大
+        font_xp = ImageFont.truetype(FONT_BOLD, 32)        # XP 字号加大
+        font_rank = ImageFont.truetype(FONT_BOLD, 32)      # Rank 字号加大
     except:
-        font_name = font_info = font_rank = ImageFont.load_default()
+        font_name = font_level = font_xp = font_rank = ImageFont.load_default()
     
-    # 用户名
+    # 用户名（Y 位置相应调整，因为头像上移了）
     nickname = member.display_name[:18] + "..." if len(member.display_name) > 18 else member.display_name
-    draw.text((152, 30), f"@{nickname}", fill=(255, 255, 255), font=font_name)
+    draw.text((152, 25), f"@{nickname}", fill=(255, 255, 255), font=font_name)
     
-    # 分隔线
-    draw.line([(150, 82), (699, 82)], fill=teal, width=2)
+    # 分隔线（位置调整）
+    draw.line([(150, 75), (699, 75)], fill=teal, width=2)
     
-    # info 三列
-    draw.text((152, 90), f"Level: {level}", fill=(210, 215, 218), font=font_info)
-    draw.text((310, 90), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=font_info)
-    draw.text((490, 90), f"Rank: #{rank}", fill=(210, 215, 218), font=font_info)
+    # Level、XP、Rank 三列（字体加大，位置下移）
+    draw.text((152, 95), f"Level: {level}", fill=(210, 215, 218), font=font_level)
+    draw.text((310, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=font_xp)
+    draw.text((510, 95), f"Rank: #{rank}", fill=(210, 215, 218), font=font_rank)
     
-    # 进度条
+    # 进度条（位置调整）
     bar_x, bar_y, bar_w, bar_h, r = 11, 150, 628, 34, 17
     draw.rounded_rectangle([bar_x, bar_y, bar_x+bar_w, bar_y+bar_h], radius=r, fill=(255, 255, 255))
     progress = int((xp / needed_xp) * bar_w) if needed_xp > 0 else 0
@@ -261,7 +263,6 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
     img.save(buf, format="PNG")
     buf.seek(0)
     return buf
-
 # ==================== Leaderboard 卡片（全新优化版） ====================
 async def create_leaderboard_card(guild, top_users):
     """
