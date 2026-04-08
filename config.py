@@ -1,5 +1,6 @@
 import os
 import logging
+import platform
 from PIL import ImageFont
 
 # ==================== 日志配置 ====================
@@ -20,41 +21,41 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 # ==================== 自动检测字体路径 ====================
 
+system = platform.system()
+
 # 候选字体路径（按优先级排序）
-FONT_CANDIDATES = [
-    # Linux DejaVu（你服务器上的）
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    # Linux Noto（中文字体支持更好）
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-    # Windows
-    "C:/Windows/Fonts/arialbd.ttf",
-    "C:/Windows/Fonts/arial.ttf",
-    "C:/Windows/Fonts/consolab.ttf",
-    "C:/Windows/Fonts/consola.ttf",
-    # macOS
-    "/System/Library/Fonts/Helvetica.ttc",
-]
+FONT_CANDIDATES = []
+
+if system == "Windows":
+    FONT_CANDIDATES = [
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/consolab.ttf",
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/msyhbd.ttc",  # 微软雅黑粗体
+        "C:/Windows/Fonts/msyh.ttc",    # 微软雅黑
+    ]
+elif system == "Darwin":  # macOS
+    FONT_CANDIDATES = [
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/SFNS.ttf",
+        "/System/Library/Fonts/SFNSDisplay.ttf",
+    ]
+else:  # Linux
+    FONT_CANDIDATES = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    ]
 
 def find_font(bold=True):
     """自动查找可用的粗体或常规字体"""
-    candidates = []
     for path in FONT_CANDIDATES:
-        if bold and "Bold" in path or "bd" in path or "Helvetica" in path:
-            candidates.append(path)
-        elif not bold and ("Sans.ttf" in path or "regular" in path or "arial.ttf" in path):
-            candidates.append(path)
-    
-    # 如果没找到，用所有候选
-    if not candidates:
-        candidates = FONT_CANDIDATES
-    
-    for path in candidates:
         if os.path.exists(path):
             logger.info(f"找到字体: {path}")
             return path
-    
     logger.warning("未找到任何字体，将使用默认字体")
     return None
 
@@ -90,13 +91,13 @@ RANK_BAR = {
     3: (200, 110, 50),
 }
 
-# ==================== 字体工具函数（带缓存和自适应） ====================
+# ==================== 字体工具函数 ====================
 
 _font_cache = {}
 
 def get_font(size=36, bold=True):
     """
-    获取指定大小的字体对象（自动适应系统可用字体）
+    获取指定大小的字体对象
     - size: 字体大小
     - bold: True 用粗体，False 用常规体
     """
@@ -108,7 +109,6 @@ def get_font(size=36, bold=True):
     font_path = FONT_BOLD if bold else FONT_REGULAR
     
     if font_path is None:
-        logger.warning("无可用字体，使用默认字体")
         return ImageFont.load_default()
     
     try:
@@ -116,45 +116,32 @@ def get_font(size=36, bold=True):
         _font_cache[cache_key] = font
         return font
     except Exception as e:
-        logger.error(f"加载字体失败 {font_path}: {e}")
+        logger.error(f"加载字体失败: {e}")
         return ImageFont.load_default()
 
 
-def get_optimal_font_size(text, max_width, initial_size=40, bold=True):
+def get_optimal_font(text, max_width, max_height=None, initial_size=40, bold=True):
     """
     自动计算最佳字体大小，使文字不超出最大宽度
-    - text: 要显示的文字
-    - max_width: 最大允许宽度（像素）
-    - initial_size: 初始字体大小
-    - bold: 是否使用粗体
+    返回 (字体对象, 实际字号)
     """
     size = initial_size
-    font = get_font(size, bold)
     
-    try:
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-    except:
-        text_width = len(text) * size // 2
-    
-    # 如果文字太宽，逐步减小字体
-    while text_width > max_width and size > 16:
+    while size > 16:
+        font = get_font(size, bold)
+        try:
+            bbox = font.getbbox(text)
+            text_width = bbox[2] - bbox[0]
+            if max_height:
+                text_height = bbox[3] - bbox[1]
+        except:
+            text_width = len(text) * size // 2
+            text_height = size
+        
+        if text_width <= max_width:
+            if max_height is None or text_height <= max_height:
+                return font, size
+        
         size -= 2
-        font = get_font(size, bold)
-        try:
-            bbox = font.getbbox(text)
-            text_width = bbox[2] - bbox[0]
-        except:
-            text_width = len(text) * size // 2
     
-    # 如果文字太窄，可以适当增大（可选）
-    while text_width < max_width * 0.7 and size < 60:
-        size += 2
-        font = get_font(size, bold)
-        try:
-            bbox = font.getbbox(text)
-            text_width = bbox[2] - bbox[0]
-        except:
-            text_width = len(text) * size // 2
-    
-    return font
+    return get_font(16, bold), 16
