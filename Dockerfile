@@ -1,21 +1,38 @@
 FROM python:3.11-slim
 
-# 安装系统字体（让图片文字正常显示）
-RUN apt-get update && apt-get install -y \
-    fonts-dejavu \
-    && rm -rf /var/lib/apt/lists/*
-
+# 设置工作目录
 WORKDIR /app
 
+# 安装系统依赖（字体、基础工具）
+RUN apt-get update && apt-get install -y \
+    fonts-dejavu \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 复制依赖文件
 COPY requirements.txt .
+
+# 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY bot.py .
+# 复制项目文件
+COPY . .
 
-# 创建数据目录（数据库持久化）
+# 创建数据目录（用于数据库持久化）
 RUN mkdir -p /app/data
 
-# 修改代码中的数据库路径
-# 注意：需要把 bot.py 里的 "bot_data.db" 改成 "/app/data/bot_data.db"
+# 暴露端口（Discord Bot 不需要端口，但保留以备健康检查）
+EXPOSE 8080
 
-CMD ["python", "bot.py"]
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD python -c "import sqlite3; conn = sqlite3.connect('/app/data/bot_data.db'); conn.close()" || exit 1
+
+# 启动命令
+CMD ["python", "main.py"]
