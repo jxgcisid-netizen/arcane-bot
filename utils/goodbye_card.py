@@ -7,9 +7,11 @@ from utils.image_utils import fetch_avatar, make_circle_avatar
 
 
 async def create_goodbye_card(member, member_count):
-    width, height = 800, 420
+    width, height = 800, 440
     img = Image.new("RGBA", (width, height), (30, 25, 25))
     draw = ImageDraw.Draw(img)
+    red = RED
+    red_dim = RED_DIM
 
     # 背景渐变
     for y in range(height):
@@ -19,45 +21,45 @@ async def create_goodbye_card(member, member_count):
     # 光晕效果
     for radius in range(180, 0, -2):
         a = int(35 * (1 - radius / 180))
-        draw.ellipse((-60 - radius, -60 - radius, -60 + radius, -60 + radius), fill=(*RED, a))
+        draw.ellipse((-60 - radius, -60 - radius, -60 + radius, -60 + radius), fill=(*red, a))
     for radius in range(200, 0, -2):
         a = int(40 * (1 - radius / 200))
-        draw.ellipse((width - 80 - radius, height - 80 - radius, width - 80 + radius, height - 80 + radius), fill=(*RED, a))
+        draw.ellipse((width - 80 - radius, height - 80 - radius, width - 80 + radius, height - 80 + radius), fill=(*red, a))
 
     # 斜线纹理
     for i in range(-height, width + height, 22):
         draw.line([(i, 0), (i + height, height)], fill=(40, 32, 32), width=1)
 
     # 边框
-    draw.rectangle([0, 0, width, 5], fill=RED)
-    draw.rectangle([0, height - 5, width, height], fill=RED)
-    draw.rectangle([0, 0, 5, height], fill=RED)
-    draw.rectangle([width - 5, 0, width, height], fill=RED)
+    draw.rectangle([0, 0, width, 5], fill=red)
+    draw.rectangle([0, height - 5, width, height], fill=red)
+    draw.rectangle([0, 0, 5, height], fill=red)
+    draw.rectangle([width - 5, 0, width, height], fill=red)
 
     # 四角角标
     c2, lw = 25, 3
     for px, py, dx, dy in [(18, 18, 1, 1), (width - 18, 18, -1, 1), (18, height - 18, 1, -1), (width - 18, height - 18, -1, -1)]:
-        draw.line([(px, py), (px + dx * c2, py)], fill=RED, width=lw)
-        draw.line([(px, py), (px, py + dy * c2)], fill=RED, width=lw)
+        draw.line([(px, py), (px + dx * c2, py)], fill=red, width=lw)
+        draw.line([(px, py), (px, py + dy * c2)], fill=red, width=lw)
 
     # 星星粒子
     random.seed(99)
     for _ in range(28):
         sx, sy, sr = random.randint(50, width - 50), random.randint(50, height - 50), random.randint(1, 3)
-        draw.ellipse((sx - sr, sy - sr, sx + sr, sy + sr), fill=(*RED, random.randint(60, 150)))
+        draw.ellipse((sx - sr, sy - sr, sx + sr, sy + sr), fill=(*red, random.randint(60, 150)))
 
     # 头像圆
-    av_cx, av_cy, av_r = width // 2, 168, 98
+    av_cx, av_cy, av_r = width // 2, 170, 98
     for ring in range(30, 0, -2):
         a = int(80 * (1 - ring / 30))
         draw.ellipse((av_cx - av_r - ring - 8, av_cy - av_r - ring - 8,
-                      av_cx + av_r + ring + 8, av_cy + av_r + ring + 8), fill=(*RED, a))
+                      av_cx + av_r + ring + 8, av_cy + av_r + ring + 8), fill=(*red, a))
     for angle in range(0, 360, 15):
         rad, rad2 = math.radians(angle), math.radians(angle + 8)
         rx = av_r + 18
         draw.line([(av_cx + rx * math.cos(rad), av_cy + rx * math.sin(rad)),
-                   (av_cx + rx * math.cos(rad2), av_cy + rx * math.sin(rad2))], fill=RED_DIM, width=2)
-    draw.ellipse((av_cx - av_r - 9, av_cy - av_r - 9, av_cx + av_r + 9, av_cy + av_r + 9), fill=RED)
+                   (av_cx + rx * math.cos(rad2), av_cy + rx * math.sin(rad2))], fill=red_dim, width=2)
+    draw.ellipse((av_cx - av_r - 9, av_cy - av_r - 9, av_cx + av_r + 9, av_cy + av_r + 9), fill=red)
     draw.ellipse((av_cx - av_r - 3, av_cy - av_r - 3, av_cx + av_r + 3, av_cy + av_r + 3), fill=(30, 25, 25))
     draw.ellipse((av_cx - av_r, av_cy - av_r, av_cx + av_r, av_cy + av_r), fill=(70, 55, 55))
 
@@ -66,29 +68,34 @@ async def create_goodbye_card(member, member_count):
         circle = make_circle_avatar(av_img, av_r * 2)
         img.paste(circle, (av_cx - av_r, av_cy - av_r), circle)
 
-    font_label = get_font("bold", 16)
-    font_name = get_font("bold", 42)
-    font_member = get_font("regular", 24)
-
+    # 告别标题
+    font_label = get_font(22, True)
     label = "✦  GOODBYE  ✦"
     lbw = font_label.getbbox(label)[2] - font_label.getbbox(label)[0]
-    draw.text(((width - lbw) // 2, 288), label, fill=RED, font=font_label)
-    draw.line([(80, 300), (width // 2 - lbw // 2 - 15, 300)], fill=RED_DIM, width=1)
-    draw.line([(width // 2 + lbw // 2 + 15, 300), (width - 80, 300)], fill=RED_DIM, width=1)
+    draw.text(((width - lbw) // 2, 295), label, fill=red, font=font_label)
 
+    # 分隔线
+    draw.line([(80, 310), (width // 2 - lbw // 2 - 15, 310)], fill=red_dim, width=1)
+    draw.line([(width // 2 + lbw // 2 + 15, 310), (width - 80, 310)], fill=red_dim, width=1)
+
+    # 告别语
+    font_name = get_font(52, True)
     name_text = f"Goodbye, {member.display_name}..."
     nw = font_name.getbbox(name_text)[2] - font_name.getbbox(name_text)[0]
-    draw.text(((width - nw) // 2 + 2, 312), name_text, fill=(80, 20, 20), font=font_name)
-    draw.text(((width - nw) // 2, 310), name_text, fill=(255, 255, 255), font=font_name)
+    draw.text(((width - nw) // 2 + 2, 325), name_text, fill=(80, 20, 20), font=font_name)
+    draw.text(((width - nw) // 2, 323), name_text, fill=(255, 255, 255), font=font_name)
 
+    # 剩余成员
+    font_member = get_font(28, True)
     mt = f"Members remaining: {member_count}"
     mw = font_member.getbbox(mt)[2] - font_member.getbbox(mt)[0]
-    draw.text(((width - mw) // 2, 362), mt, fill=(180, 140, 140), font=font_member)
+    draw.text(((width - mw) // 2, 385), mt, fill=(180, 140, 140), font=font_member)
 
+    # 底部装饰点
     for i, dx in enumerate([-30, -15, 0, 15, 30]):
-        col = RED if i == 2 else RED_DIM
+        col = red if i == 2 else red_dim
         r2 = 5 if i == 2 else 3
-        draw.ellipse((width // 2 + dx - r2, 398 - r2, width // 2 + dx + r2, 398 + r2), fill=col)
+        draw.ellipse((width // 2 + dx - r2, 415 - r2, width // 2 + dx + r2, 415 + r2), fill=col)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
