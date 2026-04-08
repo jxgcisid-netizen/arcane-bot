@@ -1,6 +1,5 @@
 import os
 import logging
-import platform
 from PIL import ImageFont
 
 # ==================== 日志配置 ====================
@@ -19,28 +18,10 @@ logger = logging.getLogger("DiscordBot")
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# ==================== 跨平台字体路径 ====================
+# ==================== 字体路径 ====================
 
-system = platform.system()
-
-if system == "Windows":
-    # Windows 字体路径
-    FONT_BOLD = "C:/Windows/Fonts/arialbd.ttf"
-    FONT_REGULAR = "C:/Windows/Fonts/arial.ttf"
-    
-    # 如果 Arial 不存在，尝试 Consolas
-    if not os.path.exists(FONT_BOLD):
-        FONT_BOLD = "C:/Windows/Fonts/consolab.ttf"
-    if not os.path.exists(FONT_REGULAR):
-        FONT_REGULAR = "C:/Windows/Fonts/consola.ttf"
-        
-elif system == "Darwin":  # macOS
-    FONT_BOLD = "/System/Library/Fonts/Helvetica.ttc"
-    FONT_REGULAR = "/System/Library/Fonts/Helvetica.ttc"
-    
-else:  # Linux (Docker/服务器)
-    FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-    FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 # ==================== 颜色定义 ====================
 
@@ -54,7 +35,6 @@ GOLD = (255, 215, 0)
 SILVER = (192, 192, 192)
 BRONZE = (205, 127, 50)
 
-# 排行榜颜色
 RANK_COLORS = {
     1: GOLD,
     2: SILVER,
@@ -71,22 +51,32 @@ RANK_BAR = {
     3: (200, 110, 50),
 }
 
-# ==================== 字体工具函数 ====================
+# ==================== 字体工具函数（修复版） ====================
+
+_font_cache = {}
 
 def get_font(size=36, bold=True):
     """
-    获取指定大小的字体对象
+    获取指定大小的字体对象（带缓存）
     - size: 字体大小
     - bold: True 用粗体，False 用常规体
     """
+    cache_key = f"{bold}_{size}"
+    
+    if cache_key in _font_cache:
+        return _font_cache[cache_key]
+    
     font_path = FONT_BOLD if bold else FONT_REGULAR
     
     try:
         if os.path.exists(font_path):
-            return ImageFont.truetype(font_path, size)
+            # 使用 ImageFont.truetype 直接加载，指定更大字号
+            font = ImageFont.truetype(font_path, size)
+            _font_cache[cache_key] = font
+            return font
         else:
-            logger.warning(f"字体文件不存在: {font_path}，使用默认字体")
+            logger.warning(f"字体文件不存在: {font_path}")
             return ImageFont.load_default()
     except Exception as e:
-        logger.error(f"加载字体失败: {e}，使用默认字体")
+        logger.error(f"加载字体失败: {e}")
         return ImageFont.load_default()
