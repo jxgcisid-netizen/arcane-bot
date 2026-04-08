@@ -18,10 +18,49 @@ logger = logging.getLogger("DiscordBot")
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# ==================== 字体路径 ====================
+# ==================== 自动检测字体路径 ====================
 
-FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+# 候选字体路径（按优先级排序）
+FONT_CANDIDATES = [
+    # Linux DejaVu（你服务器上的）
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    # Linux Noto（中文字体支持更好）
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    # Windows
+    "C:/Windows/Fonts/arialbd.ttf",
+    "C:/Windows/Fonts/arial.ttf",
+    "C:/Windows/Fonts/consolab.ttf",
+    "C:/Windows/Fonts/consola.ttf",
+    # macOS
+    "/System/Library/Fonts/Helvetica.ttc",
+]
+
+def find_font(bold=True):
+    """自动查找可用的粗体或常规字体"""
+    candidates = []
+    for path in FONT_CANDIDATES:
+        if bold and "Bold" in path or "bd" in path or "Helvetica" in path:
+            candidates.append(path)
+        elif not bold and ("Sans.ttf" in path or "regular" in path or "arial.ttf" in path):
+            candidates.append(path)
+    
+    # 如果没找到，用所有候选
+    if not candidates:
+        candidates = FONT_CANDIDATES
+    
+    for path in candidates:
+        if os.path.exists(path):
+            logger.info(f"找到字体: {path}")
+            return path
+    
+    logger.warning("未找到任何字体，将使用默认字体")
+    return None
+
+# 检测并设置字体路径
+FONT_BOLD = find_font(bold=True)
+FONT_REGULAR = find_font(bold=False)
 
 # ==================== 颜色定义 ====================
 
@@ -51,13 +90,13 @@ RANK_BAR = {
     3: (200, 110, 50),
 }
 
-# ==================== 字体工具函数（修复版） ====================
+# ==================== 字体工具函数（带缓存和自适应） ====================
 
 _font_cache = {}
 
 def get_font(size=36, bold=True):
     """
-    获取指定大小的字体对象（带缓存）
+    获取指定大小的字体对象（自动适应系统可用字体）
     - size: 字体大小
     - bold: True 用粗体，False 用常规体
     """
@@ -68,15 +107,54 @@ def get_font(size=36, bold=True):
     
     font_path = FONT_BOLD if bold else FONT_REGULAR
     
-    try:
-        if os.path.exists(font_path):
-            # 使用 ImageFont.truetype 直接加载，指定更大字号
-            font = ImageFont.truetype(font_path, size)
-            _font_cache[cache_key] = font
-            return font
-        else:
-            logger.warning(f"字体文件不存在: {font_path}")
-            return ImageFont.load_default()
-    except Exception as e:
-        logger.error(f"加载字体失败: {e}")
+    if font_path is None:
+        logger.warning("无可用字体，使用默认字体")
         return ImageFont.load_default()
+    
+    try:
+        font = ImageFont.truetype(font_path, size)
+        _font_cache[cache_key] = font
+        return font
+    except Exception as e:
+        logger.error(f"加载字体失败 {font_path}: {e}")
+        return ImageFont.load_default()
+
+
+def get_optimal_font_size(text, max_width, initial_size=40, bold=True):
+    """
+    自动计算最佳字体大小，使文字不超出最大宽度
+    - text: 要显示的文字
+    - max_width: 最大允许宽度（像素）
+    - initial_size: 初始字体大小
+    - bold: 是否使用粗体
+    """
+    size = initial_size
+    font = get_font(size, bold)
+    
+    try:
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+    except:
+        text_width = len(text) * size // 2
+    
+    # 如果文字太宽，逐步减小字体
+    while text_width > max_width and size > 16:
+        size -= 2
+        font = get_font(size, bold)
+        try:
+            bbox = font.getbbox(text)
+            text_width = bbox[2] - bbox[0]
+        except:
+            text_width = len(text) * size // 2
+    
+    # 如果文字太窄，可以适当增大（可选）
+    while text_width < max_width * 0.7 and size < 60:
+        size += 2
+        font = get_font(size, bold)
+        try:
+            bbox = font.getbbox(text)
+            text_width = bbox[2] - bbox[0]
+        except:
+            text_width = len(text) * size // 2
+    
+    return font
