@@ -48,3 +48,24 @@ RANK_BAR = {
     2: (180, 190, 210),
     3: (200, 110, 50),
 }
+
+# ==================== 字体工具函数 ====================
+from PIL import ImageFont
+
+def get_font(size=36, bold=True):
+    """
+    获取指定大小的字体对象
+    - size: 字体大小
+    - bold: True 用粗体，False 用常规体
+    """
+    font_path = FONT_BOLD if bold else FONT_REGULAR
+    
+    try:
+        if os.path.exists(font_path):
+            return ImageFont.truetype(font_path, size)
+        else:
+            logger.warning(f"字体文件不存在: {font_path}，使用默认字体")
+            return ImageFont.load_default()
+    except Exception as e:
+        logger.error(f"加载字体失败: {e}，使用默认字体")
+        return ImageFont.load_default()
