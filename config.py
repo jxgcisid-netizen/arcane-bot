@@ -1,5 +1,7 @@
 import os
 import logging
+import platform
+from PIL import ImageFont
 
 # ==================== 日志配置 ====================
 
@@ -17,11 +19,31 @@ logger = logging.getLogger("DiscordBot")
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# 字体路径
-FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+# ==================== 跨平台字体路径 ====================
 
-# 颜色定义
+system = platform.system()
+
+if system == "Windows":
+    # Windows 字体路径
+    FONT_BOLD = "C:/Windows/Fonts/arialbd.ttf"
+    FONT_REGULAR = "C:/Windows/Fonts/arial.ttf"
+    
+    # 如果 Arial 不存在，尝试 Consolas
+    if not os.path.exists(FONT_BOLD):
+        FONT_BOLD = "C:/Windows/Fonts/consolab.ttf"
+    if not os.path.exists(FONT_REGULAR):
+        FONT_REGULAR = "C:/Windows/Fonts/consola.ttf"
+        
+elif system == "Darwin":  # macOS
+    FONT_BOLD = "/System/Library/Fonts/Helvetica.ttc"
+    FONT_REGULAR = "/System/Library/Fonts/Helvetica.ttc"
+    
+else:  # Linux (Docker/服务器)
+    FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+
+# ==================== 颜色定义 ====================
+
 TEAL = (65, 183, 183)
 TEAL_DARK = (45, 130, 130)
 TEAL_DIM = (45, 100, 100)
@@ -50,7 +72,6 @@ RANK_BAR = {
 }
 
 # ==================== 字体工具函数 ====================
-from PIL import ImageFont
 
 def get_font(size=36, bold=True):
     """
