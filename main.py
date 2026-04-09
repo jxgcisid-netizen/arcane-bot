@@ -3,6 +3,7 @@ from discord.ext import commands
 import asyncio
 from config import TOKEN, logger
 from database import init_db
+from tasks.counter_updater import start_counter_updater
 
 # 设置 intents
 intents = discord.Intents.default()
@@ -38,7 +39,10 @@ async def on_ready():
     await load_extensions()
     await bot.tree.sync()
     logger.info(f"✅ Bot已登录: {bot.user}")
-    logger.info(f"已同步斜杠命令")
+    logger.info("已同步斜杠命令")
+    
+    # 启动计数器自动更新任务
+    bot.loop.create_task(start_counter_updater(bot))
 
 
 if __name__ == "__main__":
