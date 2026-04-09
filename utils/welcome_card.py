@@ -69,7 +69,7 @@ async def create_welcome_card(member, member_count):
         img.paste(circle, (av_cx - av_r, av_cy - av_r), circle)
 
     # 欢迎标题
-    font_label = get_font(22, True)
+    font_label = get_font(21, True)
     label = "✦  WELCOME TO THE SERVER  ✦"
     lbw = font_label.getbbox(label)[2] - font_label.getbbox(label)[0]
     draw.text(((width - lbw) // 2, 295), label, fill=teal, font=font_label)
@@ -79,14 +79,14 @@ async def create_welcome_card(member, member_count):
     draw.line([(width // 2 + lbw // 2 + 15, 310), (width - 80, 310)], fill=teal_dim, width=1)
 
     # 欢迎语
-    font_name = get_font(52, True)
+    font_name = get_font(50, True)
     name_text = f"Welcome, {member.display_name}!"
     nw = font_name.getbbox(name_text)[2] - font_name.getbbox(name_text)[0]
     draw.text(((width - nw) // 2 + 2, 325), name_text, fill=(20, 60, 60), font=font_name)
     draw.text(((width - nw) // 2, 323), name_text, fill=(255, 255, 255), font=font_name)
 
     # 成员数量
-    font_member = get_font(28, True)
+    font_member = get_font(26, True)
     mt = f"Member #{member_count}"
     mw = font_member.getbbox(mt)[2] - font_member.getbbox(mt)[0]
     draw.text(((width - mw) // 2, 385), mt, fill=(160, 175, 190), font=font_member)
