@@ -15,7 +15,7 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
 
     # 头像
     av_size = 115
-    av_x, av_y = 18, (height - av_size) // 2
+    av_x, av_y = 18,15
     av_img = await fetch_avatar(member)
     if av_img:
         circle = make_circle_avatar(av_img, av_size)
@@ -24,8 +24,8 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
         draw.ellipse((av_x, av_y, av_x + av_size, av_y + av_size), fill=(80, 85, 100))
 
     # 字体
-    font_name = get_font(48, True)   # 用户名 48号粗体
-    font_info = get_font(28, True)   # 信息 28号粗体
+    font_name = get_font(46, True)   # 用户名 48号粗体
+    font_info = get_font(24, True)   # 信息 28号粗体
 
     nickname = member.display_name[:18] + "..." if len(member.display_name) > 18 else member.display_name
     draw.text((152, 30), f"@{nickname}", fill=(255, 255, 255), font=font_name)
