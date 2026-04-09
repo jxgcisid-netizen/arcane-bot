@@ -69,7 +69,7 @@ async def create_goodbye_card(member, member_count):
         img.paste(circle, (av_cx - av_r, av_cy - av_r), circle)
 
     # 告别标题
-    font_label = get_font(22, True)
+    font_label = get_font(21, True)
     label = "✦  GOODBYE  ✦"
     lbw = font_label.getbbox(label)[2] - font_label.getbbox(label)[0]
     draw.text(((width - lbw) // 2, 295), label, fill=red, font=font_label)
@@ -79,14 +79,14 @@ async def create_goodbye_card(member, member_count):
     draw.line([(width // 2 + lbw // 2 + 15, 310), (width - 80, 310)], fill=red_dim, width=1)
 
     # 告别语
-    font_name = get_font(52, True)
+    font_name = get_font(50, True)
     name_text = f"Goodbye, {member.display_name}..."
     nw = font_name.getbbox(name_text)[2] - font_name.getbbox(name_text)[0]
     draw.text(((width - nw) // 2 + 2, 325), name_text, fill=(80, 20, 20), font=font_name)
     draw.text(((width - nw) // 2, 323), name_text, fill=(255, 255, 255), font=font_name)
 
     # 剩余成员
-    font_member = get_font(28, True)
+    font_member = get_font(26, True)
     mt = f"Members remaining: {member_count}"
     mw = font_member.getbbox(mt)[2] - font_member.getbbox(mt)[0]
     draw.text(((width - mw) // 2, 385), mt, fill=(180, 140, 140), font=font_member)
