@@ -101,8 +101,12 @@ async def load_modules():
     logger.info("所有模块加载完成")
 
 
+@bot.event
+async def setup_hook():
+    await load_modules()
+
+
 if __name__ == "__main__":
     from database import init_db
     init_db()
-    bot.loop.create_task(load_modules())
     bot.run(TOKEN)
