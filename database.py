@@ -101,7 +101,6 @@ def set_cached_avatar(member_id, avatar_url, size, img):
     if len(_avatar_cache) >= _AVATAR_CACHE_SIZE:
         _avatar_cache.popitem(last=False)
     _avatar_cache[cache_key] = (img, datetime.now().timestamp())
-    # 移动到最后，表示最近使用
     _avatar_cache.move_to_end(cache_key)
 
 
@@ -144,18 +143,29 @@ def db_update_guild_setting(guild_id, key, value):
 
 # ==================== 排行榜 ====================
 def db_get_rank(guild_id, user_id):
+    """获取用户排名（等级优先，同级比经验）"""
     gid = str(guild_id)
+    uid = str(user_id)
     with get_conn() as conn:
-        user = conn.execute("SELECT level, xp FROM users WHERE guild_id=? AND user_id=?", (gid, str(user_id))).fetchone()
+        user = conn.execute(
+            "SELECT level, xp FROM users WHERE guild_id=? AND user_id=?",
+            (gid, uid)
+        ).fetchone()
         if not user:
             return 0
-        row = conn.execute(
-            "SELECT COUNT(*) + 1 FROM users WHERE guild_id=? AND (level > ? OR (level = ? AND xp > ?))",
-            (gid, user["level"], user["level"], user["xp"])).fetchone()
+        row = conn.execute("""
+            SELECT COUNT(*) + 1 FROM users 
+            WHERE guild_id=? 
+            AND (
+                level > ? 
+                OR (level = ? AND xp > ?)
+            )
+        """, (gid, user["level"], user["level"], user["xp"])).fetchone()
         return row[0] if row else 0
 
 
 def db_get_leaderboard(guild_id, mode="xp", limit=10):
+    """获取排行榜（等级优先，同级比经验/语音XP）"""
     cache_key = f"{guild_id}_{mode}"
     entry = _leaderboard_cache.get(cache_key)
     now_ts = datetime.now().timestamp()
@@ -165,11 +175,17 @@ def db_get_leaderboard(guild_id, mode="xp", limit=10):
             return data
         del _leaderboard_cache[cache_key]
 
-    order = "level DESC, xp DESC" if mode == "xp" else "voice_xp DESC"
+    if mode == "xp":
+        order = "level DESC, xp DESC"
+    else:
+        order = "level DESC, voice_xp DESC"
+
     with get_conn() as conn:
         data = conn.execute(
             f"SELECT user_id, level, xp, voice_xp FROM users WHERE guild_id=? ORDER BY {order} LIMIT ?",
-            (str(guild_id), limit)).fetchall()
+            (str(guild_id), limit)
+        ).fetchall()
+
     _leaderboard_cache[cache_key] = (data, now_ts)
     return data
 
