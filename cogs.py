@@ -3,6 +3,7 @@ from discord import app_commands, Interaction
 from discord.ext import commands
 from datetime import datetime
 from main import logger
+
 # ==================== Admin ====================
 def can_target(actor, target):
     if actor == target:
@@ -97,7 +98,7 @@ class InfoCommands(commands.GroupCog, name="info"):
     @app_commands.command(name="help", description="查看帮助")
     async def help(self, interaction):
         embed = discord.Embed(title="🤖 帮助", color=discord.Color.green())
-        embed.add_field(name="📊 等级", value="`/level rank` `/level leaderboard` `/level add_role` `/level set_xp`", inline=False)
+        embed.add_field(name="📊 等级", value="`/level rank` `/level leaderboard` `/level add_role` `/level set_xp` `/level recover_from_roles`", inline=False)
         embed.add_field(name="🎭 反应角色", value="`/reaction add` `/reaction remove`", inline=False)
         embed.add_field(name="🔢 计数器", value="`/counter add` `/counter update` `/counter remove`", inline=False)
         embed.add_field(name="📋 日志", value="`/log set_message` `/log set_voice` `/log set_mod` `/log set_welcome`", inline=False)
@@ -176,7 +177,7 @@ class LevelCommands(commands.GroupCog, name="level"):
         db_set_level_role(interaction.guild.id, level, role.id)
         await interaction.response.send_message(f"✅ 等级 {level} → {role.mention}", ephemeral=True)
 
-       @app_commands.command(name="set_xp", description="设置经验倍率")
+    @app_commands.command(name="set_xp", description="设置经验倍率")
     @app_commands.default_permissions(administrator=True)
     async def set_xp(self, interaction, rate: float):
         from database import db_update_guild_setting
@@ -184,14 +185,13 @@ class LevelCommands(commands.GroupCog, name="level"):
         db_update_guild_setting(interaction.guild.id, "xp_rate", rate)
         await interaction.response.send_message(f"✅ 经验倍率 → {rate}x", ephemeral=True)
 
-    # ⬇️ 把 recover_from_roles 放在这里 ⬇️
     @app_commands.command(name="recover_from_roles", description="根据成员已有的等级身份组，恢复数据库中的等级")
     @app_commands.default_permissions(administrator=True)
     async def recover_from_roles(self, interaction: Interaction):
         await interaction.response.defer(ephemeral=True)
-        
-        from database import db_get_user, db_update_user, xp_needed, get_conn, release_conn
-        
+
+        from database import db_update_user, xp_needed, get_conn, release_conn
+
         guild = interaction.guild
         conn = get_conn()
         cur = conn.cursor()
@@ -199,13 +199,13 @@ class LevelCommands(commands.GroupCog, name="level"):
         db_users = {row[0]: row[1] for row in cur.fetchall()}
         cur.close()
         release_conn(conn)
-        
+
         updated = 0
-        
+
         for member in guild.members:
             if member.bot:
                 continue
-            
+
             highest_level = 0
             for role in member.roles:
                 name = role.name.lower()
@@ -215,20 +215,19 @@ class LevelCommands(commands.GroupCog, name="level"):
                         highest_level = max(highest_level, num)
                     except:
                         continue
-            
+
             if highest_level > 0:
                 uid = str(member.id)
                 old_level = db_users.get(uid, 1)
-                
+
                 if highest_level > old_level:
                     xp = xp_needed(highest_level) - 1
                     user_data = {"xp": xp, "level": highest_level, "voice_xp": 0}
                     db_update_user(guild.id, member.id, user_data)
                     updated += 1
-        
+
         await interaction.followup.send(f"✅ 已根据身份组恢复了 **{updated}** 位成员的等级", ephemeral=True)
 
-# ==================== Reaction Role ====================
 
 # ==================== Reaction Role ====================
 class ReactionCommands(commands.GroupCog, name="reaction"):
