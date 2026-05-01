@@ -176,56 +176,59 @@ class LevelCommands(commands.GroupCog, name="level"):
         db_set_level_role(interaction.guild.id, level, role.id)
         await interaction.response.send_message(f"✅ 等级 {level} → {role.mention}", ephemeral=True)
 
-    @app_commands.command(name="set_xp", description="设置经验倍率")
+       @app_commands.command(name="set_xp", description="设置经验倍率")
     @app_commands.default_permissions(administrator=True)
     async def set_xp(self, interaction, rate: float):
         from database import db_update_guild_setting
         rate = max(0.1, min(rate, 10.0))
         db_update_guild_setting(interaction.guild.id, "xp_rate", rate)
         await interaction.response.send_message(f"✅ 经验倍率 → {rate}x", ephemeral=True)
+
+    # ⬇️ 把 recover_from_roles 放在这里 ⬇️
+    @app_commands.command(name="recover_from_roles", description="根据成员已有的等级身份组，恢复数据库中的等级")
+    @app_commands.default_permissions(administrator=True)
+    async def recover_from_roles(self, interaction: Interaction):
+        await interaction.response.defer(ephemeral=True)
         
-@app_commands.command(name="recover_from_roles", description="根据成员已有的等级身份组，恢复数据库中的等级")
-@app_commands.default_permissions(administrator=True)
-async def recover_from_roles(self, interaction: Interaction):
-    await interaction.response.defer(ephemeral=True)
-    
-    from database import db_get_user, db_update_user, xp_needed, get_conn, release_conn
-    
-    guild = interaction.guild
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, level FROM users WHERE guild_id = %s", (str(guild.id),))
-    db_users = {row[0]: row[1] for row in cur.fetchall()}
-    cur.close()
-    release_conn(conn)
-    
-    updated = 0
-    
-    for member in guild.members:
-        if member.bot:
-            continue
+        from database import db_get_user, db_update_user, xp_needed, get_conn, release_conn
         
-        highest_level = 0
-        for role in member.roles:
-            name = role.name.lower()
-            if name.startswith("level ") or name.startswith("lv."):
-                try:
-                    num = int(name.split()[-1]) if " " in name else int(name.split(".")[-1])
-                    highest_level = max(highest_level, num)
-                except:
-                    continue
+        guild = interaction.guild
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT user_id, level FROM users WHERE guild_id = %s", (str(guild.id),))
+        db_users = {row[0]: row[1] for row in cur.fetchall()}
+        cur.close()
+        release_conn(conn)
         
-        if highest_level > 0:
-            uid = str(member.id)
-            old_level = db_users.get(uid, 1)
+        updated = 0
+        
+        for member in guild.members:
+            if member.bot:
+                continue
             
-            if highest_level > old_level:
-                xp = xp_needed(highest_level) - 1
-                user_data = {"xp": xp, "level": highest_level, "voice_xp": 0}
-                db_update_user(guild.id, member.id, user_data)
-                updated += 1
-    
-    await interaction.followup.send(f"✅ 已根据身份组恢复了 **{updated}** 位成员的等级", ephemeral=True)
+            highest_level = 0
+            for role in member.roles:
+                name = role.name.lower()
+                if name.startswith("level ") or name.startswith("lv."):
+                    try:
+                        num = int(name.split()[-1]) if " " in name else int(name.split(".")[-1])
+                        highest_level = max(highest_level, num)
+                    except:
+                        continue
+            
+            if highest_level > 0:
+                uid = str(member.id)
+                old_level = db_users.get(uid, 1)
+                
+                if highest_level > old_level:
+                    xp = xp_needed(highest_level) - 1
+                    user_data = {"xp": xp, "level": highest_level, "voice_xp": 0}
+                    db_update_user(guild.id, member.id, user_data)
+                    updated += 1
+        
+        await interaction.followup.send(f"✅ 已根据身份组恢复了 **{updated}** 位成员的等级", ephemeral=True)
+
+# ==================== Reaction Role ====================
 
 # ==================== Reaction Role ====================
 class ReactionCommands(commands.GroupCog, name="reaction"):
