@@ -30,10 +30,19 @@ def get_pool():
     global _pool
     with _pool_lock:
         if _pool is None:
+            import urllib.parse
+            url = urllib.parse.urlparse(DATABASE_URL)
+            query = urllib.parse.parse_qs(url.query)
+            sslmode = query.get('sslmode', ['disable'])[0]
+            
+            # 重建不含 sslmode 的 DSN
+            base_url = f"{url.scheme}://{url.username}:{url.password}@{url.hostname}:{url.port}{url.path}"
+            
             _pool = psycopg2.pool.ThreadedConnectionPool(
                 minconn=2,
                 maxconn=10,
-                dsn=DATABASE_URL
+                dsn=base_url,
+                sslmode=sslmode
             )
             logger.info("PostgreSQL 连接池已创建")
         return _pool
