@@ -185,7 +185,7 @@ class LevelCommands(commands.GroupCog, name="level"):
         db_update_guild_setting(interaction.guild.id, "xp_rate", rate)
         await interaction.response.send_message(f"✅ 经验倍率 → {rate}x", ephemeral=True)
 
-    @app_commands.command(name="recover_from_roles", description="根据成员已有的等级身份组，恢复数据库中的等级")
+    @app_commands.command(name="recover_from_roles", description="根据等级身份组恢复数据，取最高等级，删除低等级身份组")
     @app_commands.default_permissions(administrator=True)
     async def recover_from_roles(self, interaction: Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -201,32 +201,56 @@ class LevelCommands(commands.GroupCog, name="level"):
         release_conn(conn)
 
         updated = 0
+        roles_removed = 0
 
         for member in guild.members:
             if member.bot:
                 continue
 
-            highest_level = 0
+            level_roles = []
             for role in member.roles:
-                name = role.name.lower()
-                if name.startswith("level ") or name.startswith("lv."):
+                name = role.name.strip().lower()
+                parts = name.split()
+                # 匹配 "5 level" 或 "10 level" 格式
+                if len(parts) == 2 and parts[1] == "level":
                     try:
-                        num = int(name.split()[-1]) if " " in name else int(name.split(".")[-1])
-                        highest_level = max(highest_level, num)
+                        level_num = int(parts[0])
+                        level_roles.append((level_num, role))
                     except:
                         continue
 
-            if highest_level > 0:
-                uid = str(member.id)
-                old_level = db_users.get(uid, 1)
+            if not level_roles:
+                continue
 
-                if highest_level > old_level:
-                    xp = xp_needed(highest_level) - 1
-                    user_data = {"xp": xp, "level": highest_level, "voice_xp": 0}
-                    db_update_user(guild.id, member.id, user_data)
-                    updated += 1
+            # 找最高等级
+            highest = max(level_roles, key=lambda x: x[0])
+            highest_level = highest[0]
+            highest_role = highest[1]
 
-        await interaction.followup.send(f"✅ 已根据身份组恢复了 **{updated}** 位成员的等级", ephemeral=True)
+            # 删除低等级身份组
+            for level_num, role in level_roles:
+                if role != highest_role:
+                    try:
+                        await member.remove_roles(role, reason="等级恢复：保留最高等级身份组")
+                        roles_removed += 1
+                    except:
+                        pass
+
+            # 更新数据库
+            uid = str(member.id)
+            old_level = db_users.get(uid, 1)
+
+            if highest_level > old_level:
+                xp = xp_needed(highest_level) - 1
+                user_data = {"xp": xp, "level": highest_level, "voice_xp": 0}
+                db_update_user(guild.id, member.id, user_data)
+                updated += 1
+
+        msg = f"✅ 已恢复 **{updated}** 位成员的等级"
+        if roles_removed > 0:
+            msg += f"，清理了 **{roles_removed}** 个低等级身份组"
+        msg += "\n📊 排行榜和等级卡片已可用！"
+        await interaction.followup.send(msg, ephemeral=True)
 
 
 # ==================== Reaction Role ====================
