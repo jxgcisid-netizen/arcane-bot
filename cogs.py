@@ -186,7 +186,7 @@ class LevelCommands(commands.GroupCog, name="level"):
         
 @app_commands.command(name="recover_from_roles", description="根据成员已有的等级身份组，恢复数据库中的等级")
 @app_commands.default_permissions(administrator=True)
-async def recover_from_roles(self, interaction: discord.Interaction):
+async def recover_from_roles(self, interaction: Interaction):
     await interaction.response.defer(ephemeral=True)
     
     from database import db_get_user, db_update_user, xp_needed, get_conn, release_conn
