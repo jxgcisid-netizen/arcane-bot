@@ -100,7 +100,18 @@ async def load_modules():
     bot.loop.create_task(tsk.start_counter_updater(bot))
     logger.info("所有模块加载完成")
 
-
+@bot.command(name="dump_db")
+@commands.has_permissions(administrator=True)
+async def dump_database(ctx):
+    """将数据库文件转为文本发送"""
+    import base64
+    with open("/app/data/bot_data.db", "rb") as f:
+        data = base64.b64encode(f.read()).decode()
+    # 分段发送（Discord 有 2000 字限制）
+    for i in range(0, len(data), 1800):
+        await ctx.send(data[i:i+1800])
+    await ctx.send("✅ 导出完成")
+    
 @bot.event
 async def setup_hook():
     await load_modules()
