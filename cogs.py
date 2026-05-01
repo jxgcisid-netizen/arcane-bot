@@ -1,9 +1,8 @@
 import discord
-from discord import app_commands
+from discord import app_commands, Interaction
 from discord.ext import commands
 from datetime import datetime
 from main import logger
-
 # ==================== Admin ====================
 def can_target(actor, target):
     if actor == target:
