@@ -206,11 +206,9 @@ async def recover_from_roles(self, interaction: discord.Interaction):
         if member.bot:
             continue
         
-        # 检查这个成员的所有身份组
         highest_level = 0
         for role in member.roles:
             name = role.name.lower()
-            # 匹配 "level 10" 或 "Level 10" 或 "lv.10" 等格式
             if name.startswith("level ") or name.startswith("lv."):
                 try:
                     num = int(name.split()[-1]) if " " in name else int(name.split(".")[-1])
@@ -223,8 +221,7 @@ async def recover_from_roles(self, interaction: discord.Interaction):
             old_level = db_users.get(uid, 1)
             
             if highest_level > old_level:
-                # 恢复等级，给对应等级的基础经验
-                xp = xp_needed(highest_level) - 1  # 刚好到该等级
+                xp = xp_needed(highest_level) - 1
                 user_data = {"xp": xp, "level": highest_level, "voice_xp": 0}
                 db_update_user(guild.id, member.id, user_data)
                 updated += 1
