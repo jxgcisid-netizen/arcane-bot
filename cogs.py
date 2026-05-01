@@ -184,7 +184,52 @@ class LevelCommands(commands.GroupCog, name="level"):
         rate = max(0.1, min(rate, 10.0))
         db_update_guild_setting(interaction.guild.id, "xp_rate", rate)
         await interaction.response.send_message(f"✅ 经验倍率 → {rate}x", ephemeral=True)
-
+        
+@app_commands.command(name="recover_from_roles", description="根据成员已有的等级身份组，恢复数据库中的等级")
+@app_commands.default_permissions(administrator=True)
+async def recover_from_roles(self, interaction):
+    await interaction.response.defer(ephemeral=True)
+    
+    from database import db_get_user, db_update_user, xp_needed, get_conn, release_conn
+    
+    guild = interaction.guild
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, level FROM users WHERE guild_id = %s", (str(guild.id),))
+    db_users = {row[0]: row[1] for row in cur.fetchall()}
+    cur.close()
+    release_conn(conn)
+    
+    updated = 0
+    
+    for member in guild.members:
+        if member.bot:
+            continue
+        
+        # 检查这个成员的所有身份组
+        highest_level = 0
+        for role in member.roles:
+            name = role.name.lower()
+            # 匹配 "level 10" 或 "Level 10" 或 "lv.10" 等格式
+            if name.startswith("level ") or name.startswith("lv."):
+                try:
+                    num = int(name.split()[-1]) if " " in name else int(name.split(".")[-1])
+                    highest_level = max(highest_level, num)
+                except:
+                    continue
+        
+        if highest_level > 0:
+            uid = str(member.id)
+            old_level = db_users.get(uid, 1)
+            
+            if highest_level > old_level:
+                # 恢复等级，给对应等级的基础经验
+                xp = xp_needed(highest_level) - 1  # 刚好到该等级
+                user_data = {"xp": xp, "level": highest_level, "voice_xp": 0}
+                db_update_user(guild.id, member.id, user_data)
+                updated += 1
+    
+    await interaction.followup.send(f"✅ 已根据身份组恢复了 **{updated}** 位成员的等级", ephemeral=True)
 
 # ==================== Reaction Role ====================
 class ReactionCommands(commands.GroupCog, name="reaction"):
