@@ -1,6 +1,7 @@
 import os
 import logging
 import platform
+import threading
 import discord
 from discord.ext import commands
 from PIL import ImageFont
@@ -83,8 +84,8 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 async def on_ready():
     logger.info(f"✅ 已登录: {bot.user}")
     try:
-        await bot.tree.sync()
-        logger.info("✅ 斜杠命令已同步")
+        synced = await bot.tree.sync()
+        logger.info(f"✅ 斜杠命令已同步 ({len(synced)} 个)")
     except Exception as e:
         logger.error(f"同步命令失败: {e}")
 
@@ -108,7 +109,23 @@ async def setup_hook():
     await load_modules()
 
 
+# ==================== Flask Web API ====================
+from web_api import app as flask_app
+
+def start_flask():
+    """在独立线程中启动 Flask API"""
+    flask_app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
+
+
+# ==================== 启动 ====================
 if __name__ == "__main__":
     from database import init_db
     init_db()
+
+    # 启动 Flask 线程
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
+    logger.info("🌐 Web API 已启动 (port 8080)")
+
+    # 启动 Discord Bot（主线程）
     bot.run(TOKEN)
