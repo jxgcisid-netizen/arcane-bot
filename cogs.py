@@ -4,7 +4,7 @@ from discord.ext import commands
 from datetime import datetime
 from main import logger
 
-# ==================== Admin ====================
+# ==================== 工具函数 ====================
 def can_target(actor, target):
     if actor == target:
         return False, "不能操作自己"
@@ -15,16 +15,24 @@ def can_target(actor, target):
     return True, ""
 
 
+# 所有 Cog 共用这个权限检查
+async def check_privileged(self, interaction: Interaction) -> bool:
+    """机器人主人 或 服务器群主/管理员 都可以"""
+    app_info = await self.bot.application_info()
+    is_owner = interaction.user.id == app_info.owner.id
+    is_guild_owner = interaction.user.id == interaction.guild.owner_id
+    is_admin = interaction.user.guild_permissions.administrator
+
+    if not is_owner and not is_guild_owner and not is_admin:
+        await interaction.response.send_message("❌ 只有机器人主人、服务器群主或管理员可以使用此命令", ephemeral=True)
+        return False
+    return True
+
+
+# ==================== Admin ====================
 class AdminCommands(commands.GroupCog, name="admin"):
     def __init__(self, bot):
         self.bot = bot
-
-    async def is_owner(self, interaction: Interaction) -> bool:
-        app_info = await self.bot.application_info()
-        if interaction.user.id != app_info.owner.id:
-            await interaction.response.send_message("❌ 只有机器人主人可以使用此命令", ephemeral=True)
-            return False
-        return True
 
     async def check_target(self, interaction, member):
         if not interaction.user.guild_permissions.administrator:
@@ -122,13 +130,6 @@ class LevelCommands(commands.GroupCog, name="level"):
     def __init__(self, bot):
         self.bot = bot
 
-    async def is_owner(self, interaction: Interaction) -> bool:
-        app_info = await self.bot.application_info()
-        if interaction.user.id != app_info.owner.id:
-            await interaction.response.send_message("❌ 只有机器人主人可以使用此命令", ephemeral=True)
-            return False
-        return True
-
     # ==================== 公开命令 ====================
     @app_commands.command(name="rank", description="查看等级卡片")
     async def rank(self, interaction, member: discord.Member = None):
@@ -189,25 +190,25 @@ class LevelCommands(commands.GroupCog, name="level"):
                 desc += f"{m} **{u['name']}** — Lv.{u['level']} ({val} {'XP' if mode=='xp' else 'VP'})\n"
             await interaction.followup.send(embed=discord.Embed(title="🏆 排行榜", description=desc, color=discord.Color.gold()))
 
-    # ==================== Owner 专属命令 ====================
-    @app_commands.command(name="add_role", description="设置等级奖励角色 [Owner]")
+    # ==================== 特权命令（主人/群主/管理员） ====================
+    @app_commands.command(name="add_role", description="设置等级奖励角色")
     async def add_role(self, interaction, level: int, role: discord.Role):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_set_level_role
         db_set_level_role(interaction.guild.id, level, role.id)
         await interaction.response.send_message(f"✅ 等级 {level} → {role.mention}", ephemeral=True)
 
-    @app_commands.command(name="set_xp", description="设置经验倍率 [Owner]")
+    @app_commands.command(name="set_xp", description="设置经验倍率")
     async def set_xp(self, interaction, rate: float):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_update_guild_setting
         rate = max(0.1, min(rate, 10.0))
         db_update_guild_setting(interaction.guild.id, "xp_rate", rate)
         await interaction.response.send_message(f"✅ 经验倍率 → {rate}x", ephemeral=True)
 
-    @app_commands.command(name="set_level", description="设置指定用户的等级 [Owner]")
+    @app_commands.command(name="set_level", description="设置指定用户的等级")
     async def set_level(self, interaction: Interaction, member: discord.Member, level: int):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_update_user, xp_needed
         level = max(1, level)
         xp = xp_needed(level) - 1
@@ -215,9 +216,9 @@ class LevelCommands(commands.GroupCog, name="level"):
         db_update_user(interaction.guild.id, member.id, user_data)
         await interaction.response.send_message(f"✅ {member.display_name} 的等级已设为 **{level}**", ephemeral=True)
 
-    @app_commands.command(name="set_xp_user", description="设置指定用户的 XP [Owner]")
+    @app_commands.command(name="set_xp_user", description="设置指定用户的 XP")
     async def set_xp_user(self, interaction: Interaction, member: discord.Member, xp: int):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_get_user, db_update_user, process_level_up
         data = db_get_user(interaction.guild.id, member.id)
         data["xp"] = xp
@@ -228,9 +229,9 @@ class LevelCommands(commands.GroupCog, name="level"):
             msg += f"，连升 **{gained}** 级！"
         await interaction.response.send_message(msg, ephemeral=True)
 
-    @app_commands.command(name="recover_from_roles", description="根据等级身份组恢复数据 [Owner]")
+    @app_commands.command(name="recover_from_roles", description="根据等级身份组恢复数据")
     async def recover_from_roles(self, interaction: Interaction):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         await interaction.response.defer(ephemeral=True)
 
         from database import db_update_user, xp_needed, get_conn, release_conn
@@ -296,23 +297,16 @@ class ReactionCommands(commands.GroupCog, name="reaction"):
     def __init__(self, bot):
         self.bot = bot
 
-    async def is_owner(self, interaction: Interaction) -> bool:
-        app_info = await self.bot.application_info()
-        if interaction.user.id != app_info.owner.id:
-            await interaction.response.send_message("❌ 只有机器人主人可以使用此命令", ephemeral=True)
-            return False
-        return True
-
-    @app_commands.command(name="add", description="添加反应角色 [Owner]")
+    @app_commands.command(name="add", description="添加反应角色")
     async def add(self, interaction, message_id: str, emoji: str, role: discord.Role):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_set_reaction_role
         db_set_reaction_role(interaction.guild.id, message_id, emoji, role.id)
         await interaction.response.send_message(f"✅ {emoji} → {role.mention}", ephemeral=True)
 
-    @app_commands.command(name="remove", description="移除反应角色 [Owner]")
+    @app_commands.command(name="remove", description="移除反应角色")
     async def remove(self, interaction, message_id: str, emoji: str):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_delete_reaction_role
         db_delete_reaction_role(interaction.guild.id, message_id, emoji)
         await interaction.response.send_message("✅ 已移除", ephemeral=True)
@@ -330,25 +324,18 @@ class CounterCommands(commands.GroupCog, name="counter"):
     def __init__(self, bot):
         self.bot = bot
 
-    async def is_owner(self, interaction: Interaction) -> bool:
-        app_info = await self.bot.application_info()
-        if interaction.user.id != app_info.owner.id:
-            await interaction.response.send_message("❌ 只有机器人主人可以使用此命令", ephemeral=True)
-            return False
-        return True
-
-    @app_commands.command(name="add", description="添加计数器 [Owner]")
+    @app_commands.command(name="add", description="添加计数器")
     @app_commands.choices(counter_type=COUNTER_CHOICES)
     async def add(self, interaction, counter_type: app_commands.Choice[str], channel: discord.TextChannel, message_template: str):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_set_counter
         db_set_counter(interaction.guild.id, counter_type.value, channel.id, message_template)
         await interaction.response.send_message(f"✅ {counter_type.name} → {channel.mention}", ephemeral=True)
 
-    @app_commands.command(name="update", description="手动更新计数器 [Owner]")
+    @app_commands.command(name="update", description="手动更新计数器")
     @app_commands.choices(counter_type=COUNTER_CHOICES)
     async def update(self, interaction, counter_type: app_commands.Choice[str], value: int):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_update_counter_value, db_get_counter
         db_update_counter_value(interaction.guild.id, counter_type.value, value)
         row = db_get_counter(interaction.guild.id, counter_type.value)
@@ -366,10 +353,10 @@ class CounterCommands(commands.GroupCog, name="counter"):
                     await ch.send(msg_content)
         await interaction.response.send_message(f"✅ {counter_type.name} → {value}", ephemeral=True)
 
-    @app_commands.command(name="remove", description="移除计数器 [Owner]")
+    @app_commands.command(name="remove", description="移除计数器")
     @app_commands.choices(counter_type=COUNTER_CHOICES)
     async def remove(self, interaction, counter_type: app_commands.Choice[str]):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_delete_counter
         db_delete_counter(interaction.guild.id, counter_type.value)
         await interaction.response.send_message(f"✅ {counter_type.name} 已移除", ephemeral=True)
@@ -380,37 +367,30 @@ class LogCommands(commands.GroupCog, name="log"):
     def __init__(self, bot):
         self.bot = bot
 
-    async def is_owner(self, interaction: Interaction) -> bool:
-        app_info = await self.bot.application_info()
-        if interaction.user.id != app_info.owner.id:
-            await interaction.response.send_message("❌ 只有机器人主人可以使用此命令", ephemeral=True)
-            return False
-        return True
-
-    @app_commands.command(name="set_message", description="设置消息日志频道 [Owner]")
+    @app_commands.command(name="set_message", description="设置消息日志频道")
     async def set_message(self, interaction, channel: discord.TextChannel):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_set_log_channel
         db_set_log_channel(interaction.guild.id, "message_log_channel", channel.id)
         await interaction.response.send_message(f"✅ 消息日志 → {channel.mention}", ephemeral=True)
 
-    @app_commands.command(name="set_voice", description="设置语音日志频道 [Owner]")
+    @app_commands.command(name="set_voice", description="设置语音日志频道")
     async def set_voice(self, interaction, channel: discord.TextChannel):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_set_log_channel
         db_set_log_channel(interaction.guild.id, "voice_log_channel", channel.id)
         await interaction.response.send_message(f"✅ 语音日志 → {channel.mention}", ephemeral=True)
 
-    @app_commands.command(name="set_mod", description="设置管理日志频道 [Owner]")
+    @app_commands.command(name="set_mod", description="设置管理日志频道")
     async def set_mod(self, interaction, channel: discord.TextChannel):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_set_log_channel
         db_set_log_channel(interaction.guild.id, "mod_log_channel", channel.id)
         await interaction.response.send_message(f"✅ 管理日志 → {channel.mention}", ephemeral=True)
 
-    @app_commands.command(name="set_welcome", description="设置欢迎/告别频道 [Owner]")
+    @app_commands.command(name="set_welcome", description="设置欢迎/告别频道")
     async def set_welcome(self, interaction, channel: discord.TextChannel):
-        if not await self.is_owner(interaction): return
+        if not await check_privileged(self, interaction): return
         from database import db_set_welcome_channel
         db_set_welcome_channel(interaction.guild.id, channel.id)
         await interaction.response.send_message(f"✅ 欢迎/告别 → {channel.mention}", ephemeral=True)
