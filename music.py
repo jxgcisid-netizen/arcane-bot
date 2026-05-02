@@ -147,26 +147,26 @@ class MusicCommands(commands.GroupCog, name="music"):
             self.players[guild_id] = MusicPlayer(guild_id)
         return self.players[guild_id]
 
-    async def ensure_voice(self, interaction: Interaction) -> bool:
-        """确保 Bot 在正确的语音频道中"""
-        if not interaction.user.voice:
-            await interaction.response.send_message("❌ 你需要先加入一个语音频道", ephemeral=True)
-            return False
+async def ensure_voice(self, interaction: Interaction) -> bool:
+    """确保 Bot 在正确的语音频道中"""
+    if not interaction.user.voice:
+        await interaction.response.send_message("❌ 你需要先加入一个语音频道", ephemeral=True)
+        return False
 
-        node = self.get_node()
-        if node is None:
-            if interaction.response.is_done():
-    await interaction.followup.send("❌ 音乐服务暂时不可用，请稍后再试", ephemeral=True)
-else:
-    await interaction.response.send_message("❌ 音乐服务暂时不可用，请稍后再试", ephemeral=True)
-            return False
+    node = self.get_node()
+    if node is None:
+        if interaction.response.is_done():
+            await interaction.followup.send("❌ 音乐服务暂时不可用，请稍后再试", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ 音乐服务暂时不可用，请稍后再试", ephemeral=True)
+        return False
 
-        if not interaction.guild.voice_client:
-            await interaction.user.voice.channel.connect(cls=wavelink.Player)
-        elif interaction.guild.voice_client.channel != interaction.user.voice.channel:
-            await interaction.guild.voice_client.move_to(interaction.user.voice.channel)
+    if not interaction.guild.voice_client:
+        await interaction.user.voice.channel.connect(cls=wavelink.Player)
+    elif interaction.guild.voice_client.channel != interaction.user.voice.channel:
+        await interaction.guild.voice_client.move_to(interaction.user.voice.channel)
 
-        return True
+    return True
 
     @app_commands.command(name="play", description="播放一首歌曲（支持 B站/YouTube/SoundCloud）")
     @app_commands.choices(source=SEARCH_SOURCES)
