@@ -43,4 +43,4 @@ COPY . .
 RUN mkdir -p /app/data
 
 # 启动命令
-CMD ["python", "main.py"]
+CMD ["python", "main.py"] # force rebuild v2
