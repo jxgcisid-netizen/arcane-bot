@@ -126,7 +126,7 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
-    # 用 Cloudflare Tunnel 暴露到公网
+    # 用 Cloudflare Tunnel 暴露到公网（无需注册、无需 Token）
     def start_tunnel():
         try:
             time.sleep(2)
