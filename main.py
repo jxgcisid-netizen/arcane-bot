@@ -127,27 +127,24 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
-    # 用 Pinggy 暴露到公网（零配置、无跳转、自动 HTTPS）
+       # 用 localhost.run 暴露到公网（无时间限制）
     try:
         time.sleep(2)
         process = subprocess.Popen(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-p", "443", "-R0:localhost:8080", "a.pinggy.io"],
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:8080", "localhost.run"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True
         )
-        logger.info("🚇 Pinggy 隧道已启动，等待分配地址...")
+        logger.info("🚇 localhost.run 隧道已启动，等待分配地址...")
         time.sleep(4)
-        # 尝试读取 pinggy 输出的公网地址
         import select
         if select.select([process.stdout], [], [], 0)[0]:
             for _ in range(5):
                 line = process.stdout.readline()
                 if line:
-                    logger.info(f"📋 Pinggy: {line.strip()}")
+                    logger.info(f"📋 localhost.run: {line.strip()}")
                 else:
                     break
     except Exception as e:
-        logger.warning(f"⚠️ Pinggy 隧道启动失败: {e}")
-
-    bot.run(TOKEN)
+        logger.warning(f"⚠️ localhost.run 隧道启动失败: {e}")
