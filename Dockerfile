@@ -36,6 +36,11 @@ COPY requirements.txt .
 # 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 强制重新构建
+RUN echo "rebuild v3"
+
+COPY . .
+
 # 复制项目文件
 COPY . .
 
