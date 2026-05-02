@@ -39,15 +39,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制项目文件
 COPY . .
 
-# 安装 cloudflared
-RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
-    && chmod +x /usr/local/bin/cloudflared
-
 # 创建数据目录
 RUN mkdir -p /app/data
-
-# 暴露端口
-EXPOSE 8080
 
 # 启动命令
 CMD ["python", "main.py"]
