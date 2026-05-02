@@ -4,6 +4,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # 安装系统依赖（字体、基础工具）
+# 安装系统依赖
 RUN apt-get update && apt-get install -y \
     fonts-dejavu \
     fonts-noto-cjk \
@@ -11,7 +12,9 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     gcc \
     libpq-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
+    
 # 设置时区
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
