@@ -29,9 +29,9 @@ if system == "Windows":
 elif system == "Darwin":
     FONT_BOLD = "/System/Library/Fonts/Helvetica.ttc"
     FONT_REGULAR = "/System/Library/Fonts/Helvetica.ttc"
-else:
-    FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-    FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+elif system == "Linux":
+    FONT_BOLD = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+    FONT_REGULAR = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 # ==================== 颜色定义 ====================
 
