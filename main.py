@@ -117,7 +117,6 @@ if __name__ == "__main__":
     from database import init_db
     init_db()
 
-    # 延迟导入，避免循环依赖
     from web_api import app as flask_app
 
     def start_flask():
@@ -127,24 +126,28 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
-       # 用 localhost.run 暴露到公网（无时间限制）
-    try:
-        time.sleep(2)
-        process = subprocess.Popen(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:8080", "localhost.run"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
-        logger.info("🚇 localhost.run 隧道已启动，等待分配地址...")
-        time.sleep(4)
-        import select
-        if select.select([process.stdout], [], [], 0)[0]:
-            for _ in range(5):
-                line = process.stdout.readline()
+    # 用 localhost.run 暴露到公网（独立线程，不阻塞主进程）
+    def start_tunnel():
+        try:
+            time.sleep(2)
+            process = subprocess.Popen(
+                ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:8080", "localhost.run"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            logger.info("🚇 localhost.run 隧道已启动，等待分配地址...")
+            time.sleep(5)
+            for _ in range(10):
+                line = process.stderr.readline()
                 if line:
-                    logger.info(f"📋 localhost.run: {line.strip()}")
+                    logger.info(f"📋 {line.strip()}")
                 else:
                     break
-    except Exception as e:
-        logger.warning(f"⚠️ localhost.run 隧道启动失败: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ localhost.run 隧道启动失败: {e}")
+
+    tunnel_thread = threading.Thread(target=start_tunnel, daemon=True)
+    tunnel_thread.start()
+
+    bot.run(TOKEN)
