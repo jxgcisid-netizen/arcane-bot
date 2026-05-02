@@ -124,17 +124,17 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
-    # 启动 cloudflared tunnel
-    tunnel_token = os.getenv("CLOUDFLARED_TUNNEL_TOKEN")
-    if tunnel_token:
+    # 用 Serveo 暴露到公网
+    try:
         subprocess.Popen(
-            ["cloudflared", "tunnel", "--no-autoupdate", "run", "--token", tunnel_token],
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:8080", "serveo.net"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        logger.info("🚇 Cloudflare Tunnel 已启动")
-    else:
-        logger.warning("⚠️ 未设置 CLOUDFLARED_TUNNEL_TOKEN，跳过隧道")
+        logger.info("🚇 Serveo 隧道已启动")
+        logger.info("📋 访问地址: https://你的名字.serveo.net (名字会在日志里显示)")
+    except Exception as e:
+        logger.warning(f"⚠️ Serveo 隧道启动失败: {e}")
 
     bot.run(TOKEN)
     bot.run(TOKEN)
