@@ -2,6 +2,9 @@ import os
 import logging
 import platform
 import threading
+import time
+import subprocess
+import select
 import discord
 from discord.ext import commands
 from PIL import ImageFont
@@ -112,9 +115,9 @@ async def setup_hook():
 # ==================== 启动 ====================
 if __name__ == "__main__":
     from database import init_db
-    import subprocess
     init_db()
 
+    # 延迟导入，避免循环依赖
     from web_api import app as flask_app
 
     def start_flask():
@@ -124,17 +127,27 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
-    # 用 Serveo 暴露到公网（自定义子域名）
-    serveo_subdomain = os.getenv("SERVEO_SUBDOMAIN", "arcane-bot")
+    # 用 Pinggy 暴露到公网（零配置、无跳转、自动 HTTPS）
     try:
-        subprocess.Popen(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-R", f"{serveo_subdomain}:80:localhost:8080", "serveo.net"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+        time.sleep(2)
+        process = subprocess.Popen(
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-p", "443", "-R0:localhost:8080", "a.pinggy.io"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
         )
-        logger.info(f"🚇 Serveo 隧道已启动")
-        logger.info(f"📋 控制面板地址: https://{serveo_subdomain}.serveo.net")
+        logger.info("🚇 Pinggy 隧道已启动，等待分配地址...")
+        time.sleep(4)
+        # 尝试读取 pinggy 输出的公网地址
+        import select
+        if select.select([process.stdout], [], [], 0)[0]:
+            for _ in range(5):
+                line = process.stdout.readline()
+                if line:
+                    logger.info(f"📋 Pinggy: {line.strip()}")
+                else:
+                    break
     except Exception as e:
-        logger.warning(f"⚠️ Serveo 隧道启动失败: {e}")
+        logger.warning(f"⚠️ Pinggy 隧道启动失败: {e}")
 
     bot.run(TOKEN)
