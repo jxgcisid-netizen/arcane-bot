@@ -109,23 +109,19 @@ async def setup_hook():
     await load_modules()
 
 
-# ==================== Flask Web API ====================
-from web_api import app as flask_app
-
-def start_flask():
-    """在独立线程中启动 Flask API"""
-    flask_app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
-
-
 # ==================== 启动 ====================
 if __name__ == "__main__":
     from database import init_db
     init_db()
 
-    # 启动 Flask 线程
+    # 延迟导入，避免循环依赖
+    from web_api import app as flask_app
+
+    def start_flask():
+        flask_app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
+
     flask_thread = threading.Thread(target=start_flask, daemon=True)
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
-    # 启动 Discord Bot（主线程）
     bot.run(TOKEN)
