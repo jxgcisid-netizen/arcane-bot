@@ -44,16 +44,3 @@
 ### ℹ️ 信息命令
 - `/userinfo` - 查看用户信息
 - `/help` - 查看帮助
-
-## 🚀 快速开始
-
-### 前提条件
-- Python 3.11 或更高版本
-- Discord Bot Token（从 [Discord Developer Portal](https://discord.com/developers/applications) 获取）
-
-### 本地部署
-
-1. **克隆仓库**
-```bash
-git clone https://github.com/yourusername/arcane-bot.git
-cd arcane-bot
