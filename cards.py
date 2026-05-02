@@ -5,7 +5,6 @@ from PIL import Image, ImageDraw
 from main import TEAL, TEAL_DIM, RED, RED_DIM, GOLD, SILVER, BRONZE, RANK_COLORS, RANK_BG, RANK_BAR, get_font
 from utils import fetch_avatar, make_circle_avatar
 
-
 async def create_welcome_card(member, member_count):
     w, h = 800, 440
     img = Image.new("RGBA", (w, h), (30, 33, 40))
@@ -172,38 +171,81 @@ async def create_goodbye_card(member, member_count):
 
 async def create_rank_card(member, level, xp, needed_xp, rank):
     w, h = 900, 220
-    img = Image.new("RGBA", (w, h), (35, 39, 42))
+    img = Image.new("RGBA", (w, h), (15, 12, 40, 255))
     draw = ImageDraw.Draw(img)
-    teal = TEAL
 
-    # 右侧装饰三角 — 调窄了一点（从 432 右移到 480，三角形变瘦）
-    draw.polygon([(480, 0), (w-100, 0), (w-100, h), (580, h)], fill=teal)
+    # 赛博朋克霓虹色
+    neon_cyan = (0, 238, 255)
+    neon_pink = (255, 30, 150)
+    text_white = (255, 255, 255)
+    track_bg = (30, 40, 70)
 
-    av_img = await fetch_avatar(member)
-    av_size = 115
-    if av_img:
-        circle = make_circle_avatar(av_img, av_size)
-        img.paste(circle, (18, 15), circle)
-    else:
-        draw.ellipse((18, 15, 18 + av_size, 15 + av_size), fill=(80, 85, 100))
-
-    # 字体调大：名称从 36 调到 42，信息从 20 调到 24
+    # 使用你项目的 get_font
+    from main import get_font
     font_name = get_font(42, True)
     font_info = get_font(24, True)
-    
-    draw.text((152, 25), f"@{member.display_name}", fill=(255, 255, 255), font=font_name)
-    draw.line([(150, 80), (w-101, 80)], fill=teal, width=2)
-    draw.text((152, 95), f"Level: {level}", fill=(210, 215, 218), font=font_info)
-    draw.text((330, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=font_info)
-    draw.text((550, 95), f"Rank: {rank}", fill=(210, 215, 218), font=font_info)
+    font_small = get_font(18, True)
 
-    # 进度条位置微调
-    bar_y, bar_x, bar_w, bar_h, r = 150, 11, w-172, 34, 17
-    draw.rounded_rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], radius=r, fill=(255, 255, 255))
+    # ========== 头像区域 ==========
+    av_x, av_y, av_size = 25, 20, 130
+
+    draw.ellipse([av_x-4, av_y-4, av_x+av_size+4, av_y+av_size+4], outline=neon_cyan, width=4)
+    draw.ellipse([av_x, av_y, av_x+av_size, av_y+av_size], fill=(20, 25, 50))
+
+    av_img = await fetch_avatar(member)
+    if av_img:
+        circle = make_circle_avatar(av_img, av_size)
+        img.paste(circle, (av_x, av_y), circle)
+
+    # ========== 文本信息 ==========
+    text_start_x = 180
+
+    nickname = member.display_name[:16] + "..." if len(member.display_name) > 16 else member.display_name
+    draw.text((text_start_x, 25), f"@{nickname}", fill=text_white, font=font_name)
+
+    draw.line([(text_start_x, 90), (680, 90)], fill=neon_cyan, width=3)
+
+    draw.text((text_start_x, 110), f"Level: {level}", fill=neon_pink, font=font_info)
+    draw.text((text_start_x + 160, 110), f"XP: {xp} / {needed_xp}", fill=neon_cyan, font=font_info)
+    draw.text((text_start_x + 420, 110), f"Rank: {rank}", fill=neon_pink, font=font_info)
+
+    # ========== 渐变进度条 ==========
+    bar_x, bar_y = 25, 170
+    bar_w, bar_h, r = 675, 28, 14
+
+    draw.rounded_rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], radius=r, fill=track_bg)
+
     if needed_xp > 0:
         progress = int((xp / needed_xp) * bar_w)
         if progress > 0:
-            draw.rounded_rectangle([bar_x, bar_y, bar_x + max(progress, r * 2), bar_y + bar_h], radius=r, fill=teal)
+            progress = max(progress, r * 2)
+
+            # 生成粉→青渐变
+            grad_img = Image.new("RGB", (progress, bar_h))
+            for px in range(progress):
+                t = px / progress
+                rr = int(neon_pink[0] + (neon_cyan[0] - neon_pink[0]) * t)
+                gg = int(neon_pink[1] + (neon_cyan[1] - neon_pink[1]) * t)
+                bb = int(neon_pink[2] + (neon_cyan[2] - neon_pink[2]) * t)
+                for py in range(bar_h):
+                    grad_img.putpixel((px, py), (rr, gg, bb))
+
+            mask = Image.new("L", (progress, bar_h), 0)
+            mask_draw = ImageDraw.Draw(mask)
+            mask_draw.rounded_rectangle([0, 0, progress, bar_h], radius=r, fill=255)
+
+            img.paste(grad_img, (bar_x, bar_y), mask)
+
+    # ========== 右侧装饰面板 ==========
+    draw.line([(690, 110), (740, 20), (880, 20), (880, 200)], fill=neon_cyan, width=4, joint="curve")
+    draw.line([(880, 200), (740, 200), (690, 110)], fill=neon_pink, width=4, joint="curve")
+
+    sym_x, sym_y = 805, 115
+    draw.line([(sym_x - 20, sym_y + 25), (sym_x, sym_y - 25), (sym_x + 20, sym_y + 25)], fill=neon_cyan, width=5, joint="curve")
+
+    dots = [(sym_x-35, sym_y), (sym_x+35, sym_y), (sym_x-20, sym_y-30), (sym_x+20, sym_y-30), (sym_x, sym_y+40)]
+    for dot in dots:
+        draw.ellipse([dot[0]-3, dot[1]-3, dot[0]+3, dot[1]+3], outline=neon_pink, width=2)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
