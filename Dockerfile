@@ -36,7 +36,6 @@ EXPOSE 8080
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD python -c "import sqlite3; conn = sqlite3.connect('/app/data/bot_data.db'); conn.close()" || exit 1
-
+  CMD python -c "import psycopg2; print('OK')" || exit 1
 # 启动命令
 CMD ["python", "main.py"]
