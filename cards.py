@@ -171,12 +171,13 @@ async def create_goodbye_card(member, member_count):
 
 
 async def create_rank_card(member, level, xp, needed_xp, rank):
-    w, h = 800, 220
+    w, h = 900, 220
     img = Image.new("RGBA", (w, h), (35, 39, 42))
     draw = ImageDraw.Draw(img)
     teal = TEAL
 
-    draw.polygon([(532, 0), (w, 0), (w, h), (684, h)], fill=teal)
+    # 右侧装饰色块保持原来的宽度，只是往左移了 100px
+    draw.polygon([(432, 0), (w-100, 0), (w-100, h), (584, h)], fill=teal)
 
     av_img = await fetch_avatar(member)
     av_size = 115
@@ -186,16 +187,16 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
     else:
         draw.ellipse((18, 15, 18 + av_size, 15 + av_size), fill=(80, 85, 100))
 
-    font_name = get_font(46, True)
-    font_info = get_font(24, True)
-    nickname = member.display_name[:18] + "..." if len(member.display_name) > 18 else member.display_name
-    draw.text((152, 30), f"@{nickname}", fill=(255, 255, 255), font=font_name)
-    draw.line([(150, 82), (699, 82)], fill=teal, width=2)
+    font_name = get_font(36, True)
+    font_info = get_font(20, True)
+    draw.text((152, 30), f"@{member.display_name}", fill=(255, 255, 255), font=font_name)
+    draw.line([(150, 82), (w-101, 82)], fill=teal, width=2)
     draw.text((152, 95), f"Level: {level}", fill=(210, 215, 218), font=font_info)
     draw.text((310, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=font_info)
-    draw.text((490, 95), f"Rank: {rank}", fill=(210, 215, 218), font=font_info)
+    draw.text((510, 95), f"Rank: {rank}", fill=(210, 215, 218), font=font_info)
 
-    bar_y, bar_x, bar_w, bar_h, r = 150, 11, 628, 34, 17
+    # 进度条也跟着拉长
+    bar_y, bar_x, bar_w, bar_h, r = 150, 11, w-172, 34, 17
     draw.rounded_rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], radius=r, fill=(255, 255, 255))
     if needed_xp > 0:
         progress = int((xp / needed_xp) * bar_w)
@@ -206,7 +207,6 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
     img.save(buf, format="PNG")
     buf.seek(0)
     return buf
-
 
 async def create_leaderboard_card(guild, top_users, mode="xp"):
     row_h, av_w, img_w, header = 90, 82, 740, 70
