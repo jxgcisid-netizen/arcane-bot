@@ -127,7 +127,7 @@ if __name__ == "__main__":
     logger.info("🌐 Web API 已启动 (port 8080)")
 
     # 用 localhost.run 暴露到公网（独立线程，不阻塞主进程）
-    def start_tunnel():
+        def start_tunnel():
         try:
             time.sleep(2)
             process = subprocess.Popen(
@@ -137,8 +137,9 @@ if __name__ == "__main__":
                 text=True
             )
             logger.info("🚇 localhost.run 隧道已启动，等待分配地址...")
-            time.sleep(5)
-            for _ in range(10):
+            time.sleep(6)
+            # 读取 50 行，确保抓到域名
+            for _ in range(50):
                 line = process.stderr.readline()
                 if line:
                     logger.info(f"📋 {line.strip()}")
