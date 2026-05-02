@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from database import get_conn, release_conn, db_get_guild_settings, db_update_guild_setting
-from main import logger
+import logging
+
+logger = logging.getLogger("WebAPI")
 
 app = Flask(__name__)
 CORS(app)  # 允许前端跨域请求
