@@ -155,7 +155,10 @@ class MusicCommands(commands.GroupCog, name="music"):
 
         node = self.get_node()
         if node is None:
-            await interaction.response.send_message("❌ 音乐服务暂时不可用，请稍后再试", ephemeral=True)
+            if interaction.response.is_done():
+    await interaction.followup.send("❌ 音乐服务暂时不可用，请稍后再试", ephemeral=True)
+else:
+    await interaction.response.send_message("❌ 音乐服务暂时不可用，请稍后再试", ephemeral=True)
             return False
 
         if not interaction.guild.voice_client:
