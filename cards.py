@@ -176,8 +176,8 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
     draw = ImageDraw.Draw(img)
     teal = TEAL
 
-    # 右侧装饰色块保持原来的宽度，只是往左移了 100px
-    draw.polygon([(432, 0), (w-100, 0), (w-100, h), (584, h)], fill=teal)
+    # 右侧装饰三角 — 调窄了一点（从 432 右移到 480，三角形变瘦）
+    draw.polygon([(480, 0), (w-100, 0), (w-100, h), (580, h)], fill=teal)
 
     av_img = await fetch_avatar(member)
     av_size = 115
@@ -187,15 +187,17 @@ async def create_rank_card(member, level, xp, needed_xp, rank):
     else:
         draw.ellipse((18, 15, 18 + av_size, 15 + av_size), fill=(80, 85, 100))
 
-    font_name = get_font(36, True)
-    font_info = get_font(20, True)
-    draw.text((152, 30), f"@{member.display_name}", fill=(255, 255, 255), font=font_name)
-    draw.line([(150, 82), (w-101, 82)], fill=teal, width=2)
+    # 字体调大：名称从 36 调到 42，信息从 20 调到 24
+    font_name = get_font(42, True)
+    font_info = get_font(24, True)
+    
+    draw.text((152, 25), f"@{member.display_name}", fill=(255, 255, 255), font=font_name)
+    draw.line([(150, 80), (w-101, 80)], fill=teal, width=2)
     draw.text((152, 95), f"Level: {level}", fill=(210, 215, 218), font=font_info)
-    draw.text((310, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=font_info)
-    draw.text((510, 95), f"Rank: {rank}", fill=(210, 215, 218), font=font_info)
+    draw.text((330, 95), f"XP: {xp} / {needed_xp}", fill=(210, 215, 218), font=font_info)
+    draw.text((550, 95), f"Rank: {rank}", fill=(210, 215, 218), font=font_info)
 
-    # 进度条也跟着拉长
+    # 进度条位置微调
     bar_y, bar_x, bar_w, bar_h, r = 150, 11, w-172, 34, 17
     draw.rounded_rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], radius=r, fill=(255, 255, 255))
     if needed_xp > 0:
