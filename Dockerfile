@@ -18,9 +18,10 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
-# 添加 PostgreSQL 官方仓库（获取最新版 pg_dump）
-RUN sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' \
-    && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
+# 安装系统依赖 (包括用于添加 PostgreSQL 仓库的 lsb-release)
+RUN apt-get update && apt-get install -y lsb-release wget gnupg \
+    && echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg \
     && apt-get update \
     && apt-get install -y postgresql-client-18 \
     && rm -rf /var/lib/apt/lists/*
