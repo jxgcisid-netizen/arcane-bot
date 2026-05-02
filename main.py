@@ -124,17 +124,17 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
-    # 用 Serveo 暴露到公网
+    # 用 Serveo 暴露到公网（自定义子域名）
+    serveo_subdomain = os.getenv("SERVEO_SUBDOMAIN", "arcane-bot")
     try:
         subprocess.Popen(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:8080", "serveo.net"],
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-R", f"{serveo_subdomain}:80:localhost:8080", "serveo.net"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        logger.info("🚇 Serveo 隧道已启动")
-        logger.info("📋 访问地址: https://你的名字.serveo.net (名字会在日志里显示)")
+        logger.info(f"🚇 Serveo 隧道已启动")
+        logger.info(f"📋 控制面板地址: https://{serveo_subdomain}.serveo.net")
     except Exception as e:
         logger.warning(f"⚠️ Serveo 隧道启动失败: {e}")
 
-    bot.run(TOKEN)
     bot.run(TOKEN)
