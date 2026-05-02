@@ -2,9 +2,6 @@ import os
 import logging
 import platform
 import threading
-import time
-import subprocess
-import select
 import discord
 from discord.ext import commands
 from PIL import ImageFont
@@ -59,18 +56,15 @@ def get_font(size, bold=True):
     cache_key = f"{bold}_{size}"
     if cache_key in _font_cache:
         return _font_cache[cache_key]
-
     font_path = FONT_BOLD if bold else FONT_REGULAR
     try:
         if os.path.exists(font_path):
             font = ImageFont.truetype(font_path, size)
             _font_cache[cache_key] = font
             return font
-        logger.warning(f"字体不存在: {font_path}")
-    except Exception as e:
-        logger.error(f"加载字体失败: {e}")
+    except:
+        pass
     return ImageFont.load_default()
-
 
 # ==================== Bot初始化 ====================
 intents = discord.Intents.default()
@@ -82,35 +76,29 @@ intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-
 @bot.event
 async def on_ready():
-    logger.info(f"✅ 已登录: {bot.user}")
+    logger.info(f"已登录: {bot.user}")
     try:
         synced = await bot.tree.sync()
-        logger.info(f"✅ 斜杠命令已同步 ({len(synced)} 个)")
+        logger.info(f"斜杠命令已同步 ({len(synced)} 个)")
     except Exception as e:
         logger.error(f"同步命令失败: {e}")
 
-
 async def load_modules():
-    """加载所有模块"""
     import events as ev
     import cogs as cog
     import music as mus
     import tasks as tsk
-
     await ev.setup(bot)
     await cog.setup(bot)
     await mus.setup(bot)
     bot.loop.create_task(tsk.start_counter_updater(bot))
     logger.info("所有模块加载完成")
 
-
 @bot.event
 async def setup_hook():
     await load_modules()
-
 
 # ==================== 启动 ====================
 if __name__ == "__main__":
@@ -124,30 +112,6 @@ if __name__ == "__main__":
 
     flask_thread = threading.Thread(target=start_flask, daemon=True)
     flask_thread.start()
-    logger.info("🌐 Web API 已启动 (port 8080)")
-
-    # 用 Cloudflare Tunnel 暴露到公网（无需注册、无需 Token）
-    def start_tunnel():
-        try:
-            time.sleep(2)
-            process = subprocess.Popen(
-                ["cloudflared", "tunnel", "--url", "http://localhost:8080"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            logger.info("🚇 Cloudflare Tunnel 已启动，等待分配地址...")
-            time.sleep(6)
-            for _ in range(50):
-                line = process.stderr.readline()
-                if line:
-                    logger.info(f"📋 {line.strip()}")
-                else:
-                    break
-        except Exception as e:
-            logger.warning(f"⚠️ Cloudflare Tunnel 启动失败: {e}")
-
-    tunnel_thread = threading.Thread(target=start_tunnel, daemon=True)
-    tunnel_thread.start()
+    logger.info("Web API 已启动 (port 8080)")
 
     bot.run(TOKEN)
