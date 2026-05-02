@@ -126,16 +126,17 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
+    # 用 Cloudflare Tunnel 暴露到公网
     def start_tunnel():
         try:
             time.sleep(2)
             process = subprocess.Popen(
-                ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:8080", "localhost.run"],
+                ["cloudflared", "tunnel", "--url", "http://localhost:8080"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
             )
-            logger.info("🚇 localhost.run 隧道已启动，等待分配地址...")
+            logger.info("🚇 Cloudflare Tunnel 已启动，等待分配地址...")
             time.sleep(6)
             for _ in range(50):
                 line = process.stderr.readline()
@@ -144,7 +145,7 @@ if __name__ == "__main__":
                 else:
                     break
         except Exception as e:
-            logger.warning(f"⚠️ localhost.run 隧道启动失败: {e}")
+            logger.warning(f"⚠️ Cloudflare Tunnel 启动失败: {e}")
 
     tunnel_thread = threading.Thread(target=start_tunnel, daemon=True)
     tunnel_thread.start()
