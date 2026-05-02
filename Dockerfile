@@ -30,6 +30,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+COPY Gemini_Generated_Image_t7n65kt7n65kt7n6.png /app/Gemini_Generated_Image_t7n65kt7n65kt7n6.png
 RUN mkdir -p /app/data
 
 CMD ["python", "main.py"]
