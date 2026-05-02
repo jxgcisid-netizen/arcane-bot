@@ -112,9 +112,9 @@ async def setup_hook():
 # ==================== 启动 ====================
 if __name__ == "__main__":
     from database import init_db
+    import subprocess
     init_db()
 
-    # 延迟导入，避免循环依赖
     from web_api import app as flask_app
 
     def start_flask():
@@ -124,4 +124,17 @@ if __name__ == "__main__":
     flask_thread.start()
     logger.info("🌐 Web API 已启动 (port 8080)")
 
+    # 启动 cloudflared tunnel
+    tunnel_token = os.getenv("CLOUDFLARED_TUNNEL_TOKEN")
+    if tunnel_token:
+        subprocess.Popen(
+            ["cloudflared", "tunnel", "--no-autoupdate", "run", "--token", tunnel_token],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        logger.info("🚇 Cloudflare Tunnel 已启动")
+    else:
+        logger.warning("⚠️ 未设置 CLOUDFLARED_TUNNEL_TOKEN，跳过隧道")
+
+    bot.run(TOKEN)
     bot.run(TOKEN)
