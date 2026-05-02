@@ -78,22 +78,7 @@ intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-import base64
 
-@bot.command(name="dump_db")
-@commands.has_permissions(administrator=True)
-async def dump_database(ctx):
-    """导出数据库文件"""
-    try:
-        with open("/app/data/bot_data.db", "rb") as f:
-            data = base64.b64encode(f.read()).decode()
-        await ctx.send("📦 数据库导出开始...")
-        for i in range(0, len(data), 1900):
-            await ctx.send(f"```{data[i:i+1900]}```")
-        await ctx.send("✅ 导出完成")
-    except Exception as e:
-        await ctx.send(f"❌ 导出失败: {e}")
-        
 @bot.event
 async def on_ready():
     logger.info(f"✅ 已登录: {bot.user}")
@@ -108,14 +93,16 @@ async def load_modules():
     """加载所有模块"""
     import events as ev
     import cogs as cog
+    import music as mus
     import tasks as tsk
 
     await ev.setup(bot)
     await cog.setup(bot)
+    await mus.setup(bot)
     bot.loop.create_task(tsk.start_counter_updater(bot))
     logger.info("所有模块加载完成")
 
-    
+
 @bot.event
 async def setup_hook():
     await load_modules()
