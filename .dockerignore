@@ -19,8 +19,3 @@ logs/
 venv
 ENV
 env
-cards/
-events/
-cogs/
-tasks/
-utils/
